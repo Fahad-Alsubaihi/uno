@@ -47,6 +47,17 @@ function shuffle(arr) {
 
 const MERCY_LIMIT = 25;
 
+const DEFAULT_PENALTIES = [
+  'اشرب كوب ماء كامل',
+  'قلد صوت حيوان 10 ثواني',
+  'قول مدح لكل لاعب',
+  'افعل 10 ضغط',
+  'غني مقطع',
+  'قل سراً محرجاً',
+  'العب الجولة القادمة بيدك العكسية',
+  'تخطي دورك مرتين',
+];
+
 class GameRoom {
   constructor(code) {
     this.code = code;
@@ -57,12 +68,22 @@ class GameRoom {
     this.discardPile = [];
     this.currentPlayerIndex = 0;
     this.direction = 1;
-    this.pendingDraw = 0;            // accumulated draw penalty
+    this.pendingDraw = 0;
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
     this.pendingColorRoulettePlayerId = null;
     this.currentColor = null;
+    // Punishment mode
+    this.punishmentMode = false;
+    this.penalties = [...DEFAULT_PENALTIES];
+    this.wheelOptions = { execute: 60, retry: 20, reverse: 20 };
+    this.punishmentApprovals = new Set();
+    this.wheelRetryCount = 0;
+    this.currentSpinnerId = null;
+    this.currentSpinnerName = null;
+    this.currentPenalty = null;
+    this.lastWinner = null;
   }
 
   addPlayer(id, name) {
@@ -84,6 +105,11 @@ class GameRoom {
   }
 
   startGame() {
+    // Check all approved if punishment mode is on
+    if (this.punishmentMode) {
+      const notApproved = this.players.filter(p => !this.punishmentApprovals.has(p.id));
+      if (notApproved.length > 0) return { error: `${notApproved[0].name} لم يوافق بعد` };
+    }
     this.gameStarted = true;
     this.eliminatedPlayers = [];
     this.deck = shuffle(createDeck());
@@ -236,7 +262,23 @@ class GameRoom {
     // Win check
     if (player.hand.length === 0) {
       this.gameStarted = false;
-      return { card, gameOver: true, winner: { id: player.id, name: player.name } };
+      const loser = this.players
+        .filter(p => p.id !== player.id)
+        .sort((a, b) => b.hand.length - a.hand.length)[0];
+      if (this.punishmentMode && loser) {
+        this.currentSpinnerId = loser.id;
+        this.currentSpinnerName = loser.name;
+        const penaltyIdx = Math.floor(Math.random() * this.penalties.length);
+        this.currentPenalty = this.penalties[penaltyIdx];
+        this.lastWinner = { id: player.id, name: player.name };
+        this.wheelRetryCount = 0;
+      }
+      return {
+        card, gameOver: true,
+        winner: { id: player.id, name: player.name },
+        loser: loser ? { id: loser.id, name: loser.name } : null,
+        punishment: this.punishmentMode ? this.currentPenalty : null,
+      };
     }
 
     // Apply card effects
@@ -503,6 +545,76 @@ class GameRoom {
 
     this._checkUnoPenalties(playerId);
     return { card };
+  }
+
+  /* ── Punishment Mode ── */
+  setPunishmentMode(playerId, enabled) {
+    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+    this.punishmentMode = enabled;
+    this.punishmentApprovals.clear();
+    return { ok: true };
+  }
+
+  setPenalties(playerId, penalties) {
+    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+    if (!Array.isArray(penalties) || penalties.length === 0) return { error: 'قائمة فارغة' };
+    this.penalties = penalties.slice(0, 20);
+    return { ok: true };
+  }
+
+  setWheelOptions(playerId, options) {
+    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+    const { execute, retry, reverse } = options;
+    if (Math.round(execute + retry + reverse) !== 100) return { error: 'المجموع يجب أن يكون 100' };
+    this.wheelOptions = { execute, retry, reverse };
+    return { ok: true };
+  }
+
+  approvePunishment(playerId) {
+    this.punishmentApprovals.add(playerId);
+    return { ok: true };
+  }
+
+  spinWheel(playerId) {
+    if (!this.punishmentMode) return { error: 'وضع العقوبات غير مفعّل' };
+    if (playerId !== this.currentSpinnerId) return { error: 'ليس دورك للدوران' };
+
+    const rand = Math.random() * 100;
+    const { execute, retry, reverse } = this.wheelOptions;
+    let result;
+    if (rand < execute) result = 'execute';
+    else if (rand < execute + retry) result = 'retry';
+    else result = 'reverse';
+
+    if (result === 'retry') {
+      this.wheelRetryCount++;
+      if (this.wheelRetryCount >= 3) {
+        result = 'execute';
+        this.wheelRetryCount = 0;
+      }
+    } else {
+      this.wheelRetryCount = 0;
+    }
+
+    if (result !== 'retry') this.currentSpinnerId = null;
+
+    return {
+      result,
+      punishment: this.currentPenalty,
+      retryCount: this.wheelRetryCount,
+      loserName: this.currentSpinnerName,
+      winnerName: this.lastWinner?.name,
+    };
+  }
+
+  getPunishmentState() {
+    return {
+      punishmentMode: this.punishmentMode,
+      penalties: this.penalties,
+      wheelOptions: this.wheelOptions,
+      approvals: [...this.punishmentApprovals],
+      totalPlayers: this.players.length,
+    };
   }
 
   getState() {

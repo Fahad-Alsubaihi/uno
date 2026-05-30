@@ -7,32 +7,24 @@ import { GameScreen } from './components/GameScreen';
 import { WinnerScreen } from './components/WinnerScreen';
 import { ErrorToast } from './components/ErrorToast';
 
-const SCREENS = {
-  home: HomeScreen,
-  lobby: LobbyScreen,
-  game: GameScreen,
-  winner: WinnerScreen,
-};
+const SCREENS = { home: HomeScreen, lobby: LobbyScreen, game: GameScreen, winner: WinnerScreen };
 
 export default function App() {
   const socket = useSocket();
   const { screen, error } = useGameStore();
-
   const Screen = SCREENS[screen] || HomeScreen;
 
   return (
     <>
-      <ErrorToast message={screen !== 'game' ? error : null} />
+      {screen !== 'game' && <ErrorToast message={error} />}
       <AnimatePresence mode="wait">
         <motion.div
           key={screen}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
           style={{ width: '100%', height: '100%' }}
         >
-              <Screen socket={socket} />
+          <Screen socket={socket} />
         </motion.div>
       </AnimatePresence>
     </>

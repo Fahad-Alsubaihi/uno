@@ -85,9 +85,50 @@ io.on('connection', socket => {
       return socket.emit('error', { message: 'فقط المضيف يمكنه البدء' });
     if (room.players.length < 2)
       return socket.emit('error', { message: 'تحتاج لاعبين على الأقل' });
-    room.startGame();
+    const startResult = room.startGame();
+    if (startResult?.error) return socket.emit('error', { message: startResult.error });
     io.to(room.code).emit('game-started');
     broadcastGameState(room);
+  });
+
+  // ── Punishment events ──
+  socket.on('set-punishment-mode', ({ enabled }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const r = room.setPunishmentMode(socket.id, enabled);
+    if (r.error) return socket.emit('error', { message: r.error });
+    io.to(room.code).emit('punishment-updated', room.getPunishmentState());
+  });
+
+  socket.on('set-penalties', ({ penalties }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const r = room.setPenalties(socket.id, penalties);
+    if (r.error) return socket.emit('error', { message: r.error });
+    io.to(room.code).emit('punishment-updated', room.getPunishmentState());
+  });
+
+  socket.on('set-wheel-options', ({ options }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const r = room.setWheelOptions(socket.id, options);
+    if (r.error) return socket.emit('error', { message: r.error });
+    io.to(room.code).emit('punishment-updated', room.getPunishmentState());
+  });
+
+  socket.on('approve-punishment', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    room.approvePunishment(socket.id);
+    io.to(room.code).emit('punishment-updated', room.getPunishmentState());
+  });
+
+  socket.on('spin-wheel', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.spinWheel(socket.id);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('wheel-result', result);
   });
 
   socket.on('play-card', ({ cardIndex, chosenColor }) => {
@@ -97,7 +138,11 @@ io.on('connection', socket => {
     if (result.error) return socket.emit('error', { message: result.error });
     io.to(room.code).emit('card-played', { playerId: socket.id, card: result.card });
     if (result.gameOver) {
-      io.to(room.code).emit('game-over', { winner: result.winner });
+      io.to(room.code).emit('game-over', {
+        winner: result.winner,
+        loser: result.loser,
+        punishment: result.punishment,
+      });
     } else {
       broadcastGameState(room);
     }
