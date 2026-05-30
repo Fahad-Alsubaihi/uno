@@ -44,7 +44,6 @@ export function GameScreen({ socket }) {
   const isMyTurn = gameState.currentPlayerId === playerId;
   const myPlayer = players.find(p => p.id === playerId);
   const opponents = players.filter(p => p.id !== playerId);
-
   const isMyRoulette = gameState.pendingColorRoulette && gameState.pendingColorRoulettePlayerId === playerId;
   const currentPlayerName = players.find(p => p.id === gameState.currentPlayerId)?.name || '';
 
@@ -66,113 +65,114 @@ export function GameScreen({ socket }) {
     setPendingCardIndex(null);
   }
 
-  function handleRoulettePick(color) {
-    sound.swap();
-    colorRoulettePick(color);
-  }
-
+  function handleRoulettePick(color) { sound.swap(); colorRoulettePick(color); }
   function handleDraw() { sound.drawCard(); drawCard(); }
   function handleUno() { sound.uno(); callUno(); }
   function handleSwap(targetId) { setSwapOpen(false); sound.swap(); sevenSwap(targetId); }
 
   return (
     <div style={{
-      width: '100vw', height: '100vh', background: 'var(--bg)',
-      display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      position: 'relative', direction: 'rtl',
+      width: '100vw',
+      height: '100dvh',          /* dynamic viewport — يحسب شريط المتصفح */
+      background: 'var(--bg)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      position: 'relative',
+      direction: 'rtl',
     }}>
       <ErrorToast message={error} />
       <Notification notification={notification} />
       <ColorPicker open={colorPickerOpen} onPick={handleColorPick} />
-      <ColorPicker
-        open={isMyRoulette}
-        onPick={handleRoulettePick}
-        title="روليت الألوان — اختر لون"
-      />
+      <ColorPicker open={isMyRoulette} onPick={handleRoulettePick} title="روليت الألوان — اختر لون" />
       <SevenSwapModal open={swapOpen} players={players} myId={playerId} onSwap={handleSwap} />
 
-      {/* Header */}
+      {/* ── HEADER — ثابت ── */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)',
-        background: 'rgba(0,0,0,0.3)', flexShrink: 0,
+        padding: '8px 14px',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        background: 'rgba(0,0,0,0.3)',
+        flexShrink: 0,
+        height: 44,
       }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: 16, color: '#F43F5E', letterSpacing: 3 }}>
+        <div style={{ fontFamily: 'var(--font-head)', fontSize: 15, color: '#F43F5E', letterSpacing: 3 }}>
           UNO<span style={{ color: '#7C3AED' }}>·NM</span>
         </div>
         <motion.div
           animate={{ opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 2 }}
-          style={{ fontFamily: 'var(--font-head)', fontSize: 11, color: isMyTurn ? '#22C55E' : '#94A3B8', letterSpacing: 2, textAlign: 'center' }}
+          style={{ fontFamily: 'var(--font-head)', fontSize: 11, color: isMyTurn ? '#22C55E' : '#94A3B8', letterSpacing: 2 }}
         >
-          {isMyRoulette ? '🎲 اختر لون الروليت' : isMyTurn ? '▶ دورك' : `دور ${currentPlayerName}`}
+          {isMyRoulette ? '🎲 اختر لون' : isMyTurn ? '▶ دورك' : `دور ${currentPlayerName}`}
         </motion.div>
-        <div style={{ fontSize: 11, color: '#334155' }}>
-          {players.length} لاعبين
-        </div>
+        <div style={{ fontSize: 11, color: '#334155' }}>{players.length} لاعبين</div>
       </div>
 
-      {/* Main area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '8px 8px 0', gap: 8 }}>
-        {/* Opponents */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-          gap: 12, flexWrap: 'wrap', flexShrink: 0,
-        }}>
-          {opponents.map(opp => (
-            <OpponentHand
-              key={opp.id} player={opp}
-              isCurrentPlayer={gameState.currentPlayerId === opp.id}
-              onCatchUno={catchUno} canCatch={true}
-            />
-          ))}
-        </div>
-
-        {/* Center board */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <GameBoard gameState={gameState} isMyTurn={isMyTurn && !isMyRoulette} onDraw={handleDraw} />
-        </div>
-
-        {/* My info */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexShrink: 0, paddingBottom: 4 }}>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 11, color: '#475569', letterSpacing: 2 }}>
-            {myPlayer?.name || 'أنت'}
-          </div>
-          {isMyTurn && (
-            <motion.div
-              animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1 }}
-              style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 8px #22C55E' }}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Hand */}
+      {/* ── OPPONENTS — ثابت الارتفاع ── */}
       <div style={{
-        borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.4)',
-        padding: '8px 0 12px', flexShrink: 0, overflow: 'visible',
+        display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
+        gap: 10, flexWrap: 'wrap',
+        padding: '8px 12px',
+        flexShrink: 0,
+      }}>
+        {opponents.map(opp => (
+          <OpponentHand
+            key={opp.id} player={opp}
+            isCurrentPlayer={gameState.currentPlayerId === opp.id}
+            onCatchUno={catchUno} canCatch={true}
+          />
+        ))}
+      </div>
+
+      {/* ── CENTER BOARD — يأخذ المساحة الباقية ── */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+        <GameBoard gameState={gameState} isMyTurn={isMyTurn && !isMyRoulette} onDraw={handleDraw} />
+      </div>
+
+      {/* ── اسم اللاعب ── */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, flexShrink: 0, paddingBottom: 4 }}>
+        <div style={{ fontFamily: 'var(--font-head)', fontSize: 10, color: '#475569', letterSpacing: 2 }}>
+          {myPlayer?.name || 'أنت'}
+        </div>
+        {isMyTurn && (
+          <motion.div
+            animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1 }}
+            style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 6px #22C55E' }}
+          />
+        )}
+      </div>
+
+      {/* ── HAND — يكبر حسب عدد الأوراق ── */}
+      <div style={{
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        background: 'rgba(0,0,0,0.45)',
+        flexShrink: 0,
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)',
       }}>
         <PlayerHand
-          hand={myHand} isMyTurn={isMyTurn && !isMyRoulette}
-          gameState={gameState} onPlay={handlePlay} onCallUno={handleUno}
+          hand={myHand}
+          isMyTurn={isMyTurn && !isMyRoulette}
+          gameState={gameState}
+          onPlay={handlePlay}
+          onCallUno={handleUno}
         />
       </div>
 
-      {/* Roulette overlay banner */}
+      {/* Roulette banner */}
       <AnimatePresence>
         {isMyRoulette && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}
             style={{
-              position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', top: 52, left: '50%', transform: 'translateX(-50%)',
               background: '#1E1B4B', border: '1px solid #7C3AED',
-              borderRadius: 12, padding: '10px 24px',
-              fontFamily: 'var(--font-head)', fontSize: 13, color: '#A78BFA',
+              borderRadius: 10, padding: '8px 20px',
+              fontFamily: 'var(--font-head)', fontSize: 12, color: '#A78BFA',
               zIndex: 100, letterSpacing: 2, textAlign: 'center',
-              boxShadow: '0 0 20px rgba(124,58,237,0.4)',
               pointerEvents: 'none',
             }}
           >
-            اختر لوناً — ستسحب حتى تجيب ورقة منه
+            ستسحب حتى تجيب ورقة من اللون المختار
           </motion.div>
         )}
       </AnimatePresence>
