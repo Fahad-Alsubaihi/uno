@@ -149,7 +149,7 @@ export function GameScreen({ socket }) {
       {/* Hand */}
       <div style={{
         borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.4)',
-        padding: '8px 0 12px', flexShrink: 0, maxHeight: '38vh', overflow: 'hidden',
+        padding: '8px 0 12px', flexShrink: 0, overflow: 'visible',
       }}>
         <PlayerHand
           hand={myHand} isMyTurn={isMyTurn && !isMyRoulette}
