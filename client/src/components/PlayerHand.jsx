@@ -16,10 +16,10 @@ import { Card } from './Card';
 
 const SIZES = [
   { key: 'sm', w: 52, h: 78 },
-  { key: 'xs', w: 38, h: 57 },
+
 ];
 
-const MIN_VISIBLE = 0.45; // أقل نسبة مرئية لكل كارد
+const MIN_VISIBLE = 0.80; // أقل نسبة مرئية لكل كارد
 
 function calcLayout(count, availW) {
   if (count === 0) return { size: 'sm', w: 52, h: 78, rows: 1, overlap: 0 };
@@ -43,12 +43,12 @@ function calcLayout(count, availW) {
       }
     }
   }
-  // آخر حل: xs صفين بأقصى تداخل مسموح
-  const w = 38; const h = 57;
+  // آخر حل: sm صفين بتداخل 20% فقط
+  const w = 52; const h = 78;
   const perRow = Math.ceil(count / 2);
   const minVisible = w * MIN_VISIBLE;
   const overlap = Math.max(0, w - (availW - minVisible) / Math.max(perRow - 1, 1));
-  return { size: 'xs', w, h, rows: 2, overlap: Math.min(overlap, w * 0.55) };
+  return { size: 'sm', w, h, rows: 2, overlap: Math.round(w * 0.20) };
 }
 
 export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
