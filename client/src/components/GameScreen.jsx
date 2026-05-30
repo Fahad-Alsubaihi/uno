@@ -44,7 +44,9 @@ export function GameScreen({ socket }) {
   const isMyTurn = gameState.currentPlayerId === playerId;
   const myPlayer = players.find(p => p.id === playerId);
   const opponents = players.filter(p => p.id !== playerId);
-  const isMyRoulette = gameState.pendingColorRoulette && gameState.pendingColorRoulettePlayerId === playerId;
+  const isMyRoulette     = gameState.pendingColorRoulette && gameState.pendingColorRoulettePlayerId === playerId;
+  const rouletteNeedPick = isMyRoulette && !gameState.rouletteChosenColor;
+  const rouletteDrawing  = isMyRoulette && !!gameState.rouletteChosenColor;
   const currentPlayerName = players.find(p => p.id === gameState.currentPlayerId)?.name || '';
 
   function handlePlay(cardIndex, card, isJumpIn) {
