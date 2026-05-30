@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
@@ -18,6 +18,28 @@ export function LobbyScreen({ socket }) {
   const { roomCode, roomPlayers, playerId, reset, punishment, setPunishment } = useGameStore();
   const game = useGame(socket);
   const [setupOpen, setSetupOpen] = useState(false);
+
+  // localSegs = مصدر الحقيقة المحلي للعجلة — لا يتأثر بردود السيرفر لما في عملية جارية
+  const [localSegs, setLocalSegs] = useState(() => punishment.segments || []);
+  const opsInFlight = useRef(0);
+  const syncTimer = useRef(null);
+
+  // زامن من السيرفر فقط لو ما في عمليات جارية
+  useEffect(() => {
+    if (opsInFlight.current === 0 && punishment.segments) {
+      setLocalSegs(punishment.segments);
+    }
+  }, [punishment.segments]);
+
+  function sendSegs(newSegs) {
+    opsInFlight.current += 1;
+    setLocalSegs(newSegs);
+    game.setSegments(newSegs);
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => {
+      opsInFlight.current = Math.max(0, opsInFlight.current - 1);
+    }, 3000);
+  }
 
   const isHost = roomPlayers[0]?.id === playerId;
   const canStart = roomPlayers.length >= 2;
@@ -40,7 +62,7 @@ export function LobbyScreen({ socket }) {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, direction: 'rtl' }}>
       <PunishmentSetup
         open={setupOpen} onClose={() => setSetupOpen(false)}
-        punishment={punishment} isHost={isHost} game={game}
+        segments={localSegs} onUpdateSegs={sendSegs} isHost={isHost} game={game}
       />
 
       <motion.div
