@@ -39,8 +39,8 @@ export function GameScreen({ socket }) {
     );
   }
 
-  const myHand = gameState.myHand || [];
-  const players = gameState.players || [];
+  const myHand   = gameState.myHand || [];
+  const players  = gameState.players || [];
   const isMyTurn = gameState.currentPlayerId === playerId;
   const myPlayer = players.find(p => p.id === playerId);
   const opponents = players.filter(p => p.id !== playerId);
@@ -72,13 +72,10 @@ export function GameScreen({ socket }) {
 
   return (
     <div style={{
-      width: '100vw',
-      height: '100dvh',          /* dynamic viewport — يحسب شريط المتصفح */
+      width: '100vw', height: '100dvh',
       background: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'clip',
-      position: 'relative',
+      display: 'flex', flexDirection: 'column',
+      overflow: 'hidden', position: 'relative',
       direction: 'rtl',
     }}>
       <ErrorToast message={error} />
@@ -87,33 +84,38 @@ export function GameScreen({ socket }) {
       <ColorPicker open={isMyRoulette} onPick={handleRoulettePick} title="روليت الألوان — اختر لون" />
       <SevenSwapModal open={swapOpen} players={players} myId={playerId} onSwap={handleSwap} />
 
-      {/* ── HEADER — ثابت ── */}
+      {/* HEADER */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '8px 14px',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-        background: 'rgba(0,0,0,0.3)',
-        flexShrink: 0,
-        height: 44,
+        padding: '0 16px', height: 46, flexShrink: 0,
+        background: 'rgba(0,0,0,0.35)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: 15, color: '#F43F5E', letterSpacing: 3 }}>
+        <div style={{ fontFamily: 'var(--font-head)', fontSize: 14, color: '#F43F5E', letterSpacing: 3 }}>
           UNO<span style={{ color: '#7C3AED' }}>·NM</span>
         </div>
         <motion.div
-          animate={{ opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 2 }}
-          style={{ fontFamily: 'var(--font-head)', fontSize: 11, color: isMyTurn ? '#22C55E' : '#94A3B8', letterSpacing: 2 }}
+          animate={{ opacity: [0.6, 1, 0.6] }} transition={{ repeat: Infinity, duration: 2 }}
+          style={{
+            fontFamily: 'var(--font-head)', fontSize: 11, letterSpacing: 2,
+            color: isMyTurn ? '#22C55E' : '#64748B',
+            background: isMyTurn ? 'rgba(34,197,94,0.1)' : 'transparent',
+            padding: '3px 10px', borderRadius: 20,
+            border: isMyTurn ? '1px solid rgba(34,197,94,0.3)' : 'none',
+          }}
         >
-          {isMyRoulette ? '🎲 اختر لون' : isMyTurn ? '▶ دورك' : `دور ${currentPlayerName}`}
+          {isMyRoulette ? '🎲 اختر لون' : isMyTurn ? '◀ دورك' : `دور ${currentPlayerName}`}
         </motion.div>
-        <div style={{ fontSize: 11, color: '#334155' }}>{players.length} لاعبين</div>
+        <div style={{ fontSize: 10, color: '#334155', fontFamily: 'var(--font-head)' }}>
+          {players.length} لاعبين
+        </div>
       </div>
 
-      {/* ── OPPONENTS — ثابت الارتفاع ── */}
+      {/* OPPONENTS */}
       <div style={{
-        display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-        gap: 10, flexWrap: 'wrap',
-        padding: '8px 12px',
-        flexShrink: 0,
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        gap: 8, padding: '8px 12px', flexShrink: 0,
+        flexWrap: 'wrap',
       }}>
         {opponents.map(opp => (
           <OpponentHand
@@ -124,30 +126,33 @@ export function GameScreen({ socket }) {
         ))}
       </div>
 
-      {/* ── CENTER BOARD — يأخذ المساحة الباقية ── */}
+      {/* BOARD — flex:1 يأخذ ما تبقى */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
         <GameBoard gameState={gameState} isMyTurn={isMyTurn && !isMyRoulette} onDraw={handleDraw} />
       </div>
 
-      {/* ── اسم اللاعب ── */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, flexShrink: 0, paddingBottom: 4 }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: 10, color: '#475569', letterSpacing: 2 }}>
+      {/* MY NAME */}
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        gap: 6, flexShrink: 0, padding: '2px 0',
+      }}>
+        <span style={{ fontFamily: 'var(--font-head)', fontSize: 10, color: '#334155', letterSpacing: 2 }}>
           {myPlayer?.name || 'أنت'}
-        </div>
+        </span>
         {isMyTurn && (
           <motion.div
-            animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1 }}
-            style={{ width: 7, height: 7, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 6px #22C55E' }}
+            animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 0.9 }}
+            style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 5px #22C55E' }}
           />
         )}
       </div>
 
-      {/* ── HAND — يكبر حسب عدد الأوراق ── */}
+      {/* HAND */}
       <div style={{
-        borderTop: '1px solid rgba(255,255,255,0.07)',
-        background: 'rgba(0,0,0,0.45)',
         flexShrink: 0,
-        paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+        background: 'rgba(0,0,0,0.5)',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        paddingBottom: 'env(safe-area-inset-bottom, 6px)',
       }}>
         <PlayerHand
           hand={myHand}
@@ -158,17 +163,17 @@ export function GameScreen({ socket }) {
         />
       </div>
 
-      {/* Roulette banner */}
+      {/* Roulette hint */}
       <AnimatePresence>
         {isMyRoulette && (
           <motion.div
-            initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             style={{
-              position: 'absolute', top: 52, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', top: 54, left: '50%', transform: 'translateX(-50%)',
               background: '#1E1B4B', border: '1px solid #7C3AED',
-              borderRadius: 10, padding: '8px 20px',
-              fontFamily: 'var(--font-head)', fontSize: 12, color: '#A78BFA',
-              zIndex: 100, letterSpacing: 2, textAlign: 'center',
+              borderRadius: 10, padding: '6px 18px',
+              fontFamily: 'var(--font-head)', fontSize: 11, color: '#A78BFA',
+              zIndex: 100, letterSpacing: 1, whiteSpace: 'nowrap',
               pointerEvents: 'none',
             }}
           >
