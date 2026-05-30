@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const WARM = ['#EF4444','#F97316','#EC4899','#DC2626','#B45309','#EA580C','#DB2777','#991B1B'];
@@ -20,71 +20,36 @@ function nextColor(segs, type) {
   return palette[used % palette.length];
 }
 
-export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) {
-  // نسخة محلية من الأقسام — تتزامن مع السيرفر لكن تسمح بتعديل فوري
-  const [localSegs, setLocalSegs] = useState(segments);
+// segments + onUpdateSegs يجيان من LobbyScreen (مش من السيرفر مباشرة)
+export function PunishmentSetup({ open, onClose, segments = [], onUpdateSegs, isHost }) {
   const [addType, setAddType]     = useState('punishment');
   const [addText, setAddText]     = useState('');
   const [addSize, setAddSize]     = useState(2);
   const [luckType, setLuckType]   = useState('retry');
   const [localError, setLocalError] = useState('');
-  const pendingRef = useRef(false);
-
-  // زامن مع السيرفر لما تتغير segments من برا (إلا لو في عملية محلية جارية)
-  useEffect(() => {
-    if (!pendingRef.current) {
-      setLocalSegs(segments);
-    }
-  }, [segments]);
-
-  // إعادة تعيين عند الفتح
-  useEffect(() => {
-    if (open) {
-      setLocalSegs(segments);
-      setAddText('');
-      setAddSize(2);
-      setLocalError('');
-    }
-  }, [open]);
-
-  function sendToServer(newSegs) {
-    pendingRef.current = true;
-    game.setSegments(newSegs);
-    // بعد ثانية نسمح للسيرفر يتحكم مجدداً
-    setTimeout(() => { pendingRef.current = false; }, 1000);
-  }
 
   function addSegment() {
     const text = addType === 'luck' ? luckType : addText.trim();
     if (!text) { setLocalError('اكتب نص العقوبة أولاً'); return; }
     setLocalError('');
     const seg = {
-      id: newId(),
-      type: addType,
-      text,
-      size: addSize,
-      color: nextColor(localSegs, addType),
+      id: newId(), type: addType, text,
+      size: addSize, color: nextColor(segments, addType),
     };
-    const newSegs = [...localSegs, seg];
-    setLocalSegs(newSegs);   // تحديث فوري في الواجهة
-    sendToServer(newSegs);
+    onUpdateSegs([...segments, seg]);
     setAddText('');
     setAddSize(2);
   }
 
   function removeSegment(id) {
-    const newSegs = localSegs.filter(s => s.id !== id);
-    setLocalSegs(newSegs);
-    sendToServer(newSegs);
+    onUpdateSegs(segments.filter(s => s.id !== id));
   }
 
   function updateSize(id, val) {
-    const newSegs = localSegs.map(s => s.id === id ? { ...s, size: val } : s);
-    setLocalSegs(newSegs);
-    sendToServer(newSegs);
+    onUpdateSegs(segments.map(s => s.id === id ? { ...s, size: val } : s));
   }
 
-  const totalWeight = localSegs.reduce((sum, s) => sum + s.size, 0);
+  const totalWeight = segments.reduce((sum, s) => sum + s.size, 0);
   const canAdd = addType === 'luck' || addText.trim().length > 0;
 
   return (
@@ -111,7 +76,6 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
               direction: 'rtl',
             }}
           >
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 17, color: '#A78BFA', letterSpacing: 2, margin: 0 }}>
                 عجلة العقوبات
@@ -122,17 +86,15 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
             {/* قائمة الأقسام */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: '#475569', fontFamily: 'var(--font-head)', letterSpacing: 2, marginBottom: 8 }}>
-                الأقسام ({localSegs.length})
+                الأقسام ({segments.length})
               </div>
-
-              {localSegs.length === 0 && (
+              {segments.length === 0 && (
                 <div style={{ textAlign: 'center', color: '#334155', fontSize: 13, padding: '16px 0' }}>
                   لا توجد أقسام — أضف أول عقوبة
                 </div>
               )}
-
               <AnimatePresence>
-                {localSegs.map(seg => {
+                {segments.map(seg => {
                   const pct = totalWeight > 0 ? Math.round((seg.size / totalWeight) * 100) : 0;
                   return (
                     <motion.div
@@ -147,7 +109,6 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                       }}
                     >
                       <div style={{ width: 4, height: 36, borderRadius: 4, background: seg.color, flexShrink: 0 }} />
-
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: '#CBD5E1', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {seg.type === 'luck'
@@ -157,11 +118,9 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                             {seg.type === 'luck' ? 'حظ' : 'عقوبة'}
                           </span>
                         </div>
-
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {isHost ? (
-                            <input
-                              type="range" min={1} max={5} step={1} value={seg.size}
+                            <input type="range" min={1} max={5} step={1} value={seg.size}
                               onChange={e => updateSize(seg.id, Number(e.target.value))}
                               style={{ flex: 1, accentColor: seg.color, height: 4 }}
                             />
@@ -173,16 +132,13 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                           <span style={{ fontSize: 11, color: '#64748B', minWidth: 40, flexShrink: 0 }}>{seg.size}/5 · {pct}%</span>
                         </div>
                       </div>
-
                       {isHost && (
-                        <motion.button
-                          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                           onClick={() => removeSegment(seg.id)}
                           style={{
                             background: 'rgba(244,63,94,0.15)', border: 'none', borderRadius: 6,
                             width: 28, height: 28, cursor: 'pointer', color: '#F43F5E',
-                            fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            flexShrink: 0,
+                            fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                           }}
                         >×</motion.button>
                       )}
@@ -192,7 +148,7 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
               </AnimatePresence>
             </div>
 
-            {/* إضافة — للمضيف فقط */}
+            {/* إضافة */}
             {isHost && (
               <div style={{
                 background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)',
@@ -201,13 +157,9 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                 <div style={{ fontSize: 11, color: '#64748B', fontFamily: 'var(--font-head)', letterSpacing: 2, marginBottom: 10 }}>
                   إضافة قسم
                 </div>
-
-                {/* نوع */}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                   {[{ id: 'punishment', label: '🚫 عقوبة' }, { id: 'luck', label: '🍀 حظ' }].map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => { setAddType(t.id); setLocalError(''); }}
+                    <button key={t.id} onClick={() => { setAddType(t.id); setLocalError(''); }}
                       style={{
                         flex: 1, padding: '8px 0', borderRadius: 8, border: 'none',
                         background: addType === t.id ? (t.id === 'punishment' ? '#EF4444' : '#7C3AED') : 'rgba(255,255,255,0.07)',
@@ -221,9 +173,7 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                   <>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
                       {PRESETS.map(p => (
-                        <button
-                          key={p}
-                          onClick={() => { setAddText(p); setLocalError(''); }}
+                        <button key={p} onClick={() => { setAddText(p); setLocalError(''); }}
                           style={{
                             background: addText === p ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.06)',
                             border: `1px solid ${addText === p ? '#EF4444' : 'rgba(255,255,255,0.1)'}`,
@@ -233,8 +183,7 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                         >{p}</button>
                       ))}
                     </div>
-                    <input
-                      value={addText}
+                    <input value={addText}
                       onChange={e => { setAddText(e.target.value); setLocalError(''); }}
                       onKeyDown={e => e.key === 'Enter' && addSegment()}
                       placeholder="أو اكتب عقوبة خاصة…"
@@ -242,13 +191,11 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                         width: '100%', background: 'rgba(0,0,0,0.3)',
                         border: `1px solid ${localError ? '#EF4444' : 'rgba(239,68,68,0.3)'}`,
                         borderRadius: 8, padding: '9px 12px', color: '#E2E8F0', fontSize: 13,
-                        fontFamily: 'var(--font-body)', textAlign: 'right', marginBottom: localError ? 4 : 10,
-                        boxSizing: 'border-box', outline: 'none',
+                        fontFamily: 'var(--font-body)', textAlign: 'right',
+                        marginBottom: localError ? 4 : 10, boxSizing: 'border-box', outline: 'none',
                       }}
                     />
-                    {localError && (
-                      <div style={{ color: '#F43F5E', fontSize: 12, marginBottom: 8 }}>{localError}</div>
-                    )}
+                    {localError && <div style={{ color: '#F43F5E', fontSize: 12, marginBottom: 8 }}>{localError}</div>}
                   </>
                 ) : (
                   <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -256,9 +203,7 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                       { id: 'retry',   label: '🍀 حاول مرة أخرى',   color: '#7C3AED' },
                       { id: 'reverse', label: '🔄 تنقلب على الفائز', color: '#2563EB' },
                     ].map(l => (
-                      <button
-                        key={l.id}
-                        onClick={() => setLuckType(l.id)}
+                      <button key={l.id} onClick={() => setLuckType(l.id)}
                         style={{
                           flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
                           background: luckType === l.id ? l.color : 'rgba(255,255,255,0.07)',
@@ -269,13 +214,10 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                   </div>
                 )}
 
-                {/* الحجم */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <span style={{ fontSize: 12, color: '#64748B', flexShrink: 0 }}>الاحتمالية:</span>
                   {[1, 2, 3, 4, 5].map(n => (
-                    <button
-                      key={n}
-                      onClick={() => setAddSize(n)}
+                    <button key={n} onClick={() => setAddSize(n)}
                       style={{
                         width: 34, height: 34, borderRadius: 6,
                         border: addSize === n ? '2px solid #A78BFA' : '1px solid rgba(255,255,255,0.1)',
@@ -299,9 +241,7 @@ export function PunishmentSetup({ open, onClose, segments = [], isHost, game }) 
                     fontFamily: 'var(--font-head)', fontSize: 14, letterSpacing: 1,
                     cursor: canAdd ? 'pointer' : 'not-allowed',
                   }}
-                >
-                  + إضافة للعجلة
-                </motion.button>
+                >+ إضافة للعجلة</motion.button>
               </div>
             )}
 
