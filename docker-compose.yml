@@ -1,23 +1,8 @@
-services:
-  traefik:
-    image: traefik:v3.0
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.letsencrypt.acme.email=fahad.work20@gmail.com
-      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - letsencrypt:/letsencrypt
-    restart: unless-stopped
+networks:
+  n8n_traefik_public:
+    external: true
 
+services:
   server:
     build:
       context: ./server
@@ -26,6 +11,8 @@ services:
       NODE_ENV: production
       PORT: "3001"
     restart: unless-stopped
+    networks:
+      - n8n_traefik_public
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
       interval: 10s
@@ -40,19 +27,19 @@ services:
       server:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - n8n_traefik_public
     labels:
       - traefik.enable=true
+      - traefik.docker.network=n8n_traefik_public
       # HTTPS
-      - traefik.http.routers.uno.rule=Host(`codegenuis.com`) || Host(`www.codegenuis.com`)
+      - traefik.http.routers.uno.rule=Host(`uno.codegenuis.com`)
       - traefik.http.routers.uno.entrypoints=websecure
       - traefik.http.routers.uno.tls.certresolver=letsencrypt
       - traefik.http.services.uno.loadbalancer.server.port=80
       # HTTP → HTTPS redirect
-      - traefik.http.routers.uno-http.rule=Host(`codegenuis.com`) || Host(`www.codegenuis.com`)
+      - traefik.http.routers.uno-http.rule=Host(`uno.codegenuis.com`)
       - traefik.http.routers.uno-http.entrypoints=web
-      - traefik.http.routers.uno-http.middlewares=https-redirect
-      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
-
-volumes:
-  letsencrypt:
+      - traefik.http.routers.uno-http.middlewares=uno-https-redirect
+      - traefik.http.middlewares.uno-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.uno-https-redirect.redirectscheme.permanent=true
