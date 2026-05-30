@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "PowerShell(python --version 2>&1; python3 --version 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\FAlsu\\\\OneDrive\\\\Desktop\\\\claude\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"dark gaming card game UNO multiplayer intense\" --design-system -p \"UNO No Mercy\" -f markdown 2>&1)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\FAlsu\\\\OneDrive\\\\Desktop\\\\claude\\\\uno-no-mercy\" -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules|\\\\.claude' } | Select-Object -ExpandProperty FullName | Sort-Object)"
+    ]
+  }
+}

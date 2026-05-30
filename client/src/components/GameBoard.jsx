@@ -1,0 +1,106 @@
+import { motion, AnimatePresence } from 'framer-motion';
+import { Card } from './Card';
+
+const COLOR_RING = {
+  red: '#DC2626', green: '#16A34A', blue: '#2563EB', yellow: '#D97706', wild: '#7C3AED',
+};
+
+export function GameBoard({ gameState, isMyTurn, onDraw }) {
+  const { topCard, currentColor, pendingDraw, deckCount } = gameState;
+  const ringColor = COLOR_RING[currentColor] || '#7C3AED';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, direction: 'rtl' }}>
+      {/* Pending draw warning */}
+      <AnimatePresence>
+        {pendingDraw > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            style={{
+              background: '#7F1D1D', border: '1px solid #EF4444',
+              borderRadius: 10, padding: '8px 20px',
+              fontFamily: 'var(--font-head)', fontSize: 16,
+              color: '#FCA5A5', letterSpacing: 2,
+              boxShadow: '0 0 20px rgba(239,68,68,0.4)', textAlign: 'center',
+            }}
+          >
+            تراكم: +{pendingDraw}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Current color dot */}
+      <motion.div
+        animate={{ boxShadow: `0 0 20px ${ringColor}80, 0 0 40px ${ringColor}40` }}
+        style={{
+          width: 18, height: 18, borderRadius: '50%',
+          background: ringColor, border: '2px solid rgba(255,255,255,0.3)',
+        }}
+        title={`اللون الحالي: ${currentColor}`}
+      />
+
+      {/* Deck + Discard */}
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexDirection: 'row-reverse' }}>
+        {/* Draw deck */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <motion.div
+            whileHover={isMyTurn ? { scale: 1.05 } : {}}
+            whileTap={isMyTurn ? { scale: 0.95 } : {}}
+            onClick={isMyTurn ? onDraw : undefined}
+            style={{ cursor: isMyTurn ? 'pointer' : 'default', position: 'relative' }}
+          >
+            {[2, 1].map(offset => (
+              <div key={offset} style={{
+                position: 'absolute', top: -offset * 2, left: offset * 2,
+                width: 72, height: 108, borderRadius: 10,
+                background: 'linear-gradient(135deg, #1E1B4B, #4C1D95)',
+                border: '2px solid rgba(167,139,250,0.2)', opacity: 0.6,
+              }} />
+            ))}
+            <Card card={{ id: 'deck', color: 'wild', type: 'wild', value: 'wild' }} faceDown size="md" />
+          </motion.div>
+          <span style={{ fontSize: 11, color: '#64748B' }}>{deckCount} متبقية</span>
+          {isMyTurn && (
+            <motion.span
+              animate={{ opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.5 }}
+              style={{ fontSize: 10, color: '#A78BFA', fontFamily: 'var(--font-head)', letterSpacing: 1 }}
+            >
+              اضغط للسحب
+            </motion.span>
+          )}
+        </div>
+
+        {/* Direction arrow */}
+        <motion.div
+          animate={{ rotate: gameState.direction === 1 ? 0 : 180 }}
+          transition={{ duration: 0.4, type: 'spring' }}
+          style={{ color: '#4B5563', fontSize: 22 }}
+        >
+          ↻
+        </motion.div>
+
+        {/* Discard pile */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{
+              position: 'absolute', top: 3, right: -3, opacity: 0.3,
+              width: 72, height: 108, borderRadius: 10, background: '#374151',
+            }} />
+            <AnimatePresence mode="popLayout">
+              {topCard && (
+                <Card
+                  key={topCard.id} card={topCard} size="md" layoutId={topCard.id}
+                  initial={{ scale: 0.6, rotate: -20, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  exit={{ scale: 0.6, opacity: 0 }}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+          <span style={{ fontSize: 11, color: '#64748B' }}>المستعمَلة</span>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,179 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const GameRoom = require('./GameRoom');
+
+const app = express();
+app.use(cors());
+app.get('/health', (_, res) => res.json({ ok: true }));
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  transports: ['websocket', 'polling'],
+});
+
+const rooms = new Map();
+
+function roomCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code;
+  do {
+    code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  } while (rooms.has(code));
+  return code;
+}
+
+function broadcastGameState(room) {
+  const base = room.getGameState();
+  for (const player of room.players) {
+    io.to(player.id).emit('game-state', { ...base, myHand: player.hand });
+  }
+}
+
+function handleElimination(room, result) {
+  if (!result.eliminated) return false;
+  // Find eliminated player name from eliminatedPlayers list (last added)
+  const eliminated = room.eliminatedPlayers[room.eliminatedPlayers.length - 1];
+  if (eliminated) {
+    io.to(room.code).emit('player-eliminated', { playerId: eliminated.id, playerName: eliminated.name });
+  }
+  if (room.players.length === 1 && room.gameStarted === false) {
+    io.to(room.code).emit('game-over', { winner: room.players[0] });
+    return true;
+  }
+  if (room.players.length === 1) {
+    room.gameStarted = false;
+    io.to(room.code).emit('game-over', { winner: room.players[0] });
+    return true;
+  }
+  return false;
+}
+
+io.on('connection', socket => {
+  console.log('connected:', socket.id);
+
+  socket.on('create-room', ({ playerName }) => {
+    const code = roomCode();
+    const room = new GameRoom(code);
+    rooms.set(code, room);
+    room.addPlayer(socket.id, playerName);
+    socket.join(code);
+    socket.data.roomCode = code;
+    socket.emit('room-joined', { roomCode: code, playerId: socket.id });
+    io.to(code).emit('room-updated', room.getState());
+  });
+
+  socket.on('join-room', ({ roomCode, playerName }) => {
+    const code = (roomCode || '').toUpperCase().trim();
+    const room = rooms.get(code);
+    if (!room) return socket.emit('error', { message: 'الغرفة غير موجودة' });
+    if (room.gameStarted) return socket.emit('error', { message: 'اللعبة بدأت بالفعل' });
+    if (room.players.length >= 4) return socket.emit('error', { message: 'الغرفة ممتلئة (4 لاعبين)' });
+    room.addPlayer(socket.id, playerName);
+    socket.join(code);
+    socket.data.roomCode = code;
+    socket.emit('room-joined', { roomCode: code, playerId: socket.id });
+    io.to(code).emit('room-updated', room.getState());
+  });
+
+  socket.on('start-game', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    if (room.players[0]?.id !== socket.id)
+      return socket.emit('error', { message: 'فقط المضيف يمكنه البدء' });
+    if (room.players.length < 2)
+      return socket.emit('error', { message: 'تحتاج لاعبين على الأقل' });
+    room.startGame();
+    io.to(room.code).emit('game-started');
+    broadcastGameState(room);
+  });
+
+  socket.on('play-card', ({ cardIndex, chosenColor }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.playCard(socket.id, cardIndex, chosenColor);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('card-played', { playerId: socket.id, card: result.card });
+    if (result.gameOver) {
+      io.to(room.code).emit('game-over', { winner: result.winner });
+    } else {
+      broadcastGameState(room);
+    }
+  });
+
+  socket.on('draw-card', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.drawCard(socket.id);
+    if (result.error) return socket.emit('error', { message: result.error });
+    if (!handleElimination(room, result)) broadcastGameState(room);
+  });
+
+  socket.on('call-uno', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.callUno(socket.id);
+    if (result.error) return socket.emit('error', { message: result.error });
+    const player = room.players.find(p => p.id === socket.id);
+    io.to(room.code).emit('uno-called', { playerId: socket.id, playerName: player?.name });
+    broadcastGameState(room);
+  });
+
+  socket.on('catch-uno', ({ targetId }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.catchUno(socket.id, targetId);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('uno-caught', { targetName: result.targetName });
+    broadcastGameState(room);
+  });
+
+  socket.on('jump-in', ({ cardIndex }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.jumpIn(socket.id, cardIndex);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('card-played', { playerId: socket.id, card: result.card, jumpIn: true });
+    if (result.gameOver) {
+      io.to(room.code).emit('game-over', { winner: result.winner });
+    } else {
+      broadcastGameState(room);
+    }
+  });
+
+  socket.on('seven-swap', ({ targetPlayerId }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.sevenSwap(socket.id, targetPlayerId);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('seven-swapped', { fromId: socket.id, toId: targetPlayerId });
+    broadcastGameState(room);
+  });
+
+  socket.on('color-roulette-pick', ({ chosenColor }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.colorRoulettePick(socket.id, chosenColor);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('roulette-resolved', { drew: result.drew });
+    if (!handleElimination(room, result)) broadcastGameState(room);
+  });
+
+  socket.on('disconnect', () => {
+    const code = socket.data.roomCode;
+    const room = rooms.get(code);
+    if (!room) return;
+    room.removePlayer(socket.id);
+    if (room.players.length === 0) {
+      rooms.delete(code);
+    } else {
+      io.to(code).emit('room-updated', room.getState());
+      if (room.gameStarted) broadcastGameState(room);
+    }
+  });
+});
+
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => console.log(`UNO No Mercy → port ${PORT}`));
