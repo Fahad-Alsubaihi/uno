@@ -5,6 +5,7 @@ import { useGame } from '../hooks/useGame';
 import { useSound } from '../hooks/useSound';
 import { PunishmentWheel } from './PunishmentWheel';
 
+
 const COLORS = ['#F43F5E','#7C3AED','#A78BFA','#FCD34D','#22C55E','#60A5FA'];
 const FIREWORKS = Array.from({ length: 24 }, (_, i) => ({
   id: i, x: Math.random() * 100, y: Math.random() * 60, color: COLORS[i % COLORS.length],
@@ -26,6 +27,14 @@ export function WinnerScreen({ socket }) {
   const game = useGame(socket);
   const sound = useSound();
   const isWinner = winner?.id === playerId;
+
+  // Auto-open wheel whenever punishment is on and there's a loser (fallback)
+  useEffect(() => {
+    if (punishment?.enabled && loser) {
+      const t = setTimeout(() => setShowWheel(true), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [punishment?.enabled, loser?.id]);
 
   useEffect(() => { sound.win(); }, []);
 
@@ -61,32 +70,15 @@ export function WinnerScreen({ socket }) {
           </motion.p>
         )}
 
-        {/* Punishment mode button — triggers wheel for loser */}
         {punishment?.enabled && loser && !showWheel && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
-            style={{ marginBottom: 16 }}>
-            <div style={{ fontFamily: 'var(--font-head)', fontSize: 13, color: '#F43F5E', letterSpacing: 2, marginBottom: 8 }}>
-              {loser.name} — حان وقت العقوبة!
-            </div>
-            {loser.id === playerId && (
-              <motion.button
-                whileHover={{ scale: 1.05, boxShadow: '0 0 24px rgba(244,63,94,0.7)' }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowWheel(true)}
-                style={{
-                  background: 'linear-gradient(135deg,#F43F5E,#BE123C)',
-                  border: 'none', borderRadius: 12, padding: '12px 32px',
-                  fontFamily: 'var(--font-head)', fontSize: 16, color: '#fff',
-                  cursor: 'pointer', letterSpacing: 2,
-                  boxShadow: '0 0 16px rgba(244,63,94,0.4)',
-                }}
-              >
-                افتح العجلة!
-              </motion.button>
-            )}
-            {loser.id !== playerId && (
-              <div style={{ fontSize: 12, color: '#64748B' }}>في انتظار {loser.name} لفتح العجلة…</div>
-            )}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+            style={{ marginBottom: 16, textAlign: 'center' }}>
+            <motion.div
+              animate={{ opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.2 }}
+              style={{ fontFamily: 'var(--font-head)', fontSize: 12, color: '#F43F5E', letterSpacing: 2 }}
+            >
+              جاري فتح عجلة العقوبات…
+            </motion.div>
           </motion.div>
         )}
 

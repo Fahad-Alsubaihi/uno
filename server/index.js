@@ -32,20 +32,36 @@ function broadcastGameState(room) {
   }
 }
 
+function emitGameOver(room, winner) {
+  // Pick loser = eliminated player with most cards (last eliminated), or any non-winner
+  const loserRecord = room.eliminatedPlayers[room.eliminatedPlayers.length - 1] || null;
+  const loser = loserRecord ? { id: loserRecord.id, name: loserRecord.name } : null;
+
+  if (room.punishmentMode && loser) {
+    room.currentSpinnerId = loser.id;
+    room.currentSpinnerName = loser.name;
+    const idx = Math.floor(Math.random() * room.penalties.length);
+    room.currentPenalty = room.penalties[idx];
+    room.lastWinner = winner;
+    room.wheelRetryCount = 0;
+  }
+
+  io.to(room.code).emit('game-over', {
+    winner,
+    loser,
+    punishment: room.punishmentMode ? room.currentPenalty : null,
+  });
+}
+
 function handleElimination(room, result) {
   if (!result.eliminated) return false;
-  // Find eliminated player name from eliminatedPlayers list (last added)
   const eliminated = room.eliminatedPlayers[room.eliminatedPlayers.length - 1];
   if (eliminated) {
     io.to(room.code).emit('player-eliminated', { playerId: eliminated.id, playerName: eliminated.name });
   }
-  if (room.players.length === 1 && room.gameStarted === false) {
-    io.to(room.code).emit('game-over', { winner: room.players[0] });
-    return true;
-  }
   if (room.players.length === 1) {
     room.gameStarted = false;
-    io.to(room.code).emit('game-over', { winner: room.players[0] });
+    emitGameOver(room, room.players[0]);
     return true;
   }
   return false;
