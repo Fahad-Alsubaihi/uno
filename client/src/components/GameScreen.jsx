@@ -77,7 +77,7 @@ export function GameScreen({ socket }) {
       background: 'var(--bg)',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',
+      overflow: 'clip',
       position: 'relative',
       direction: 'rtl',
     }}>
