@@ -61,9 +61,10 @@ const GLOW = {
    PlayerHand Component
 ───────────────────────────────────────────── */
 export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
-  const topCard      = gameState?.topCard;
-  const currentColor = gameState?.currentColor;
-  const pendingDraw  = gameState?.pendingDraw || 0;
+  const topCard       = gameState?.topCard;
+  const currentColor  = gameState?.currentColor;
+  const pendingDraw   = gameState?.pendingDraw   || 0;
+  const lastDrawValue = gameState?.lastDrawValue || 0;
 
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [unoPressed,  setUnoPressed]  = useState(false);
@@ -101,7 +102,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
   /* ── game logic (unchanged) ── */
   const isPlayable = useCallback((card) => {
     if (!isMyTurn) return false;
-    if (pendingDraw > 0) return (card.drawValue || 0) >= pendingDraw;
+    if (pendingDraw > 0) return (card.drawValue || 0) >= lastDrawValue;
     if (card.color === 'wild') return true;
     if (!topCard) return false;
     const activeColor = currentColor || topCard.color;
@@ -109,7 +110,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     if (card.type !== 'number' && topCard.color !== 'wild' && card.type === topCard.type) return true;
     if (card.type === 'number' && topCard.type === 'number' && card.value === topCard.value) return true;
     return false;
-  }, [isMyTurn, pendingDraw, topCard, currentColor]);
+  }, [isMyTurn, pendingDraw, lastDrawValue, topCard, currentColor]);
 
   const isJumpable = useCallback((card) => {
     if (!topCard || isMyTurn) return false;

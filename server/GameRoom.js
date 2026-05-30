@@ -11,27 +11,30 @@ function createDeck() {
       deck.push({ id: uuidv4(), color, type: 'number', value: n });
     }
     for (let i = 0; i < 2; i++) {
-      deck.push({ id: uuidv4(), color, type: 'skip', value: 'skip' });
-      deck.push({ id: uuidv4(), color, type: 'reverse', value: 'reverse' });
-      deck.push({ id: uuidv4(), color, type: 'draw-two', value: '+2', drawValue: 2 });
+      deck.push({ id: uuidv4(), color, type: 'skip',       value: 'skip' });
+      deck.push({ id: uuidv4(), color, type: 'reverse',    value: 'reverse' });
+      deck.push({ id: uuidv4(), color, type: 'draw-two',   value: '+2',  drawValue: 2 });
+      // No Mercy special colored cards (2x each per color)
+      deck.push({ id: uuidv4(), color, type: 'draw-four',  value: '+4',  drawValue: 4 });
+      deck.push({ id: uuidv4(), color, type: 'draw-six',   value: '+6',  drawValue: 6 });
+      deck.push({ id: uuidv4(), color, type: 'draw-ten',   value: '+10', drawValue: 10 });
+      deck.push({ id: uuidv4(), color, type: 'skip-all',   value: 'skip-all' });
+      deck.push({ id: uuidv4(), color, type: 'discard-all',value: 'discard-all' });
     }
-    // No Mercy special colored cards
-    deck.push({ id: uuidv4(), color, type: 'draw-six',   value: '+6',        drawValue: 6 });
-    deck.push({ id: uuidv4(), color, type: 'draw-ten',   value: '+10',       drawValue: 10 });
-    deck.push({ id: uuidv4(), color, type: 'skip-all',   value: 'skip-all' });
-    deck.push({ id: uuidv4(), color, type: 'discard-all',value: 'discard-all' });
   }
   // Standard wilds x4
   for (let i = 0; i < 4; i++) {
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild',           value: 'wild' });
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-four', value: '+4', drawValue: 4 });
   }
-  // No Mercy special wilds x2
+  // No Mercy special wilds — draw-6/10 x3, reverse/roulette x2
+  for (let i = 0; i < 3; i++) {
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-six',  value: '+6',  drawValue: 6 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-ten',  value: '+10', drawValue: 10 });
+  }
   for (let i = 0; i < 2; i++) {
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-six',         value: '+6',     drawValue: 6 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-ten',         value: '+10',    drawValue: 10 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-reverse-draw-four',value: 'عكس+4', drawValue: 4 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-color-roulette',   value: 'روليت' });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-reverse-draw-four', value: 'عكس+4', drawValue: 4 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-color-roulette',    value: 'روليت' });
   }
   return deck;
 }
@@ -75,11 +78,13 @@ class GameRoom {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
+    this.lastDrawValue = 0;
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
     this.pendingColorRoulettePlayerId = null;
     this.currentColor = null;
+    this.pendingDrawnPlay = false;
     // Punishment mode
     this.punishmentMode = false;
     this.segments = DEFAULT_SEGMENTS.map(s => ({ ...s }));
@@ -122,10 +127,12 @@ class GameRoom {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
+    this.lastDrawValue = 0;
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
     this.pendingColorRoulettePlayerId = null;
+    this.pendingDrawnPlay = false;
 
     for (const player of this.players) {
       player.hand = [];
@@ -199,7 +206,7 @@ class GameRoom {
     const top = this.discardPile[this.discardPile.length - 1];
 
     if (this.pendingDraw > 0) {
-      return (card.drawValue || 0) >= this.pendingDraw;
+      return (card.drawValue || 0) >= this.lastDrawValue;
     }
 
     if (card.color === 'wild') return true;
@@ -254,6 +261,7 @@ class GameRoom {
 
     player.hand.splice(cardIndex, 1);
     player.unoCalled = false;
+    this.pendingDrawnPlay = false;
 
     if (this._isWildCard(card.type)) {
       card.chosenColor = COLORS.includes(chosenColor) ? chosenColor : 'red';
@@ -302,6 +310,11 @@ class GameRoom {
 
       case 'draw-two':
         this.pendingDraw += 2;
+        this._advanceTurn(1);
+        break;
+
+      case 'draw-four':
+        this.pendingDraw += 4;
         this._advanceTurn(1);
         break;
 
@@ -383,6 +396,11 @@ class GameRoom {
         this._advanceTurn(1);
     }
 
+    // Track the last-played draw value so stacking check compares against it, not the total
+    if (card.drawValue && this.pendingDraw > 0) {
+      this.lastDrawValue = card.drawValue;
+    }
+
     this._checkUnoPenalties(playerId);
     return { card };
   }
@@ -399,6 +417,7 @@ class GameRoom {
     if (this.pendingDraw > 0) {
       const count = this.pendingDraw;
       this.pendingDraw = 0;
+      this.lastDrawValue = 0;
       this._drawCards(player, count);
       const eliminated = this._checkMercyRule(player);
       if (!eliminated) this._advanceTurn(1);
@@ -417,8 +436,25 @@ class GameRoom {
     } while (!this._isPlayable(drawnCard) && drew < 30);
 
     const eliminated = this._checkMercyRule(player);
-    if (!eliminated) this._advanceTurn(1);
-    return { drew, eliminated };
+    if (eliminated) return { drew, eliminated };
+
+    // If the drawn card is playable, keep the turn so the player can choose to play it
+    if (drawnCard && this._isPlayable(drawnCard)) {
+      this.pendingDrawnPlay = true;
+    } else {
+      this._advanceTurn(1);
+    }
+    return { drew, eliminated, canPlay: this.pendingDrawnPlay };
+  }
+
+  passTurn(playerId) {
+    const pIdx = this.players.findIndex(p => p.id === playerId);
+    if (pIdx === -1)                   return { error: 'لاعب غير موجود' };
+    if (pIdx !== this.currentPlayerIndex) return { error: 'ليس دورك' };
+    if (!this.pendingDrawnPlay)        return { error: 'لا يوجد سحب معلق' };
+    this.pendingDrawnPlay = false;
+    this._advanceTurn(1);
+    return { ok: true };
   }
 
   sevenSwap(playerId, targetPlayerId) {
@@ -525,6 +561,10 @@ class GameRoom {
         this.pendingDraw += 2;
         this._advanceTurn(1);
         break;
+      case 'draw-four':
+        this.pendingDraw += 4;
+        this._advanceTurn(1);
+        break;
       case 'draw-six':
         this.pendingDraw += 6;
         this._advanceTurn(1);
@@ -545,6 +585,10 @@ class GameRoom {
       }
       default:
         this._advanceTurn(1);
+    }
+
+    if (card.drawValue && this.pendingDraw > 0) {
+      this.lastDrawValue = card.drawValue;
     }
 
     this._checkUnoPenalties(playerId);
@@ -669,10 +713,12 @@ class GameRoom {
       currentPlayerId: this.players[this.currentPlayerIndex]?.id,
       direction: this.direction,
       pendingDraw: this.pendingDraw,
+      lastDrawValue: this.lastDrawValue,
       pendingSevenSwap: this.pendingSevenSwap,
       pendingSevenPlayerId: this.pendingSevenPlayerId,
       pendingColorRoulette: this.pendingColorRoulette,
       pendingColorRoulettePlayerId: this.pendingColorRoulettePlayerId,
+      pendingDrawnPlay: this.pendingDrawnPlay,
       deckCount: this.deck.length,
     };
   }

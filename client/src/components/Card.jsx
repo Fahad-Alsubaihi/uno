@@ -140,6 +140,7 @@ function Corner({ card, flip, size }) {
     case 'skip-all':             return <div style={style}><SkipSVG s={s} /></div>;
     case 'reverse':              return <div style={style}><ReverseSVG s={s} /></div>;
     case 'draw-two':             return <div style={style}>+2</div>;
+    case 'draw-four':            return <div style={style}>+4</div>;
     case 'draw-six':             return <div style={style}>+6</div>;
     case 'draw-ten':             return <div style={style}>+10</div>;
     case 'discard-all':          return <div style={style}><DiscardAllSVG s={s} /></div>;
@@ -170,6 +171,7 @@ function Center({ card, size }) {
     case 'skip-all':       return <SkipAllSVG s={s} />;
     case 'reverse':        return <ReverseSVG s={s} />;
     case 'draw-two':       return <DrawSVG s={s} label="+2" />;
+    case 'draw-four':      return <DrawSVG s={s} label="+4" />;
     case 'draw-six':       return <DrawSVG s={s} label="+6" />;
     case 'draw-ten':       return <DrawSVG s={s} label="+10" />;
     case 'discard-all':    return <DiscardAllSVG s={s} />;
