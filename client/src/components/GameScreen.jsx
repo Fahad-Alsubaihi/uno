@@ -13,7 +13,7 @@ import { Notification } from './Notification';
 
 export function GameScreen({ socket }) {
   const { gameState, playerId, error, notification } = useGameStore();
-  const { playCard, drawCard, passTurn, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick } = useGame(socket);
+  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick } = useGame(socket);
   const sound = useSound();
 
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -44,8 +44,7 @@ export function GameScreen({ socket }) {
   const isMyTurn = gameState.currentPlayerId === playerId;
   const myPlayer = players.find(p => p.id === playerId);
   const opponents = players.filter(p => p.id !== playerId);
-  const isMyRoulette   = gameState.pendingColorRoulette && gameState.pendingColorRoulettePlayerId === playerId;
-  const canPassTurn    = isMyTurn && gameState.pendingDrawnPlay;
+  const isMyRoulette = gameState.pendingColorRoulette && gameState.pendingColorRoulettePlayerId === playerId;
   const currentPlayerName = players.find(p => p.id === gameState.currentPlayerId)?.name || '';
 
   function handlePlay(cardIndex, card, isJumpIn) {
@@ -67,8 +66,8 @@ export function GameScreen({ socket }) {
   }
 
   function handleRoulettePick(color) { sound.swap(); colorRoulettePick(color); }
-  function handleDraw() { sound.drawCard(); drawCard(); }
-  function handlePass() { passTurn(); }
+  function handleRouletteDraw() { sound.drawCard(); rouletteDraw(); }
+  function handleDraw() { sound.drawCard(); if (rouletteDrawing) { rouletteDraw(); } else { drawCard(); } }
   function handleUno() { sound.uno(); callUno(); }
   function handleSwap(targetId) { setSwapOpen(false); sound.swap(); sevenSwap(targetId); }
 
@@ -83,7 +82,7 @@ export function GameScreen({ socket }) {
       <ErrorToast message={error} />
       <Notification notification={notification} />
       <ColorPicker open={colorPickerOpen} onPick={handleColorPick} />
-      <ColorPicker open={isMyRoulette} onPick={handleRoulettePick} title="روليت الألوان — اختر لون" />
+      <ColorPicker open={rouletteNeedPick} onPick={handleRoulettePick} title="روليت الألوان — اختر لون" />
       <SevenSwapModal open={swapOpen} players={players} myId={playerId} onSwap={handleSwap} />
 
       {/* HEADER */}
@@ -106,7 +105,7 @@ export function GameScreen({ socket }) {
             border: isMyTurn ? '1px solid rgba(34,197,94,0.3)' : 'none',
           }}
         >
-          {isMyRoulette ? '🎲 اختر لون' : isMyTurn ? '◀ دورك' : `دور ${currentPlayerName}`}
+          {rouletteNeedPick ? '🎲 اختر لون' : rouletteDrawing ? `🎴 اسحب — ${gameState.rouletteChosenColor}` : isMyTurn ? '◀ دورك' : `دور ${currentPlayerName}`}
         </motion.div>
         <div style={{ fontSize: 10, color: '#334155', fontFamily: 'var(--font-head)' }}>
           {players.length} لاعبين
@@ -133,35 +132,6 @@ export function GameScreen({ socket }) {
         <GameBoard gameState={gameState} isMyTurn={isMyTurn && !isMyRoulette} onDraw={handleDraw} />
       </div>
 
-      {/* PASS TURN — shown after drawing a playable card */}
-      <AnimatePresence>
-        {canPassTurn && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
-            style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', flexShrink: 0 }}
-          >
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={handlePass}
-              style={{
-                background: 'rgba(30,41,59,0.85)',
-                border: '1px solid rgba(100,116,139,0.5)',
-                borderRadius: 20,
-                padding: '6px 22px',
-                fontFamily: 'var(--font-head)',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#94A3B8',
-                cursor: 'pointer',
-                letterSpacing: 2,
-              }}
-            >
-              تجاوز ←
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* MY NAME */}
       <div style={{
         display: 'flex', justifyContent: 'center', alignItems: 'center',
@@ -187,7 +157,7 @@ export function GameScreen({ socket }) {
       }}>
         <PlayerHand
           hand={myHand}
-          isMyTurn={isMyTurn && !isMyRoulette}
+          isMyTurn={isMyTurn && !isMyRoulette && !rouletteDrawing}
           gameState={gameState}
           onPlay={handlePlay}
           onCallUno={handleUno}
@@ -196,7 +166,7 @@ export function GameScreen({ socket }) {
 
       {/* Roulette hint */}
       <AnimatePresence>
-        {isMyRoulette && (
+        {(rouletteNeedPick || rouletteDrawing) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             style={{
@@ -208,7 +178,7 @@ export function GameScreen({ socket }) {
               pointerEvents: 'none',
             }}
           >
-            ستسحب حتى تجيب ورقة من اللون المختار
+            {rouletteNeedPick ? "اختر اللون الذي ستسحب له" : `اسحب حتى يجيك لون ${gameState.rouletteChosenColor || ""}`}
           </motion.div>
         )}
       </AnimatePresence>

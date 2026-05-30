@@ -1,0 +1,7 @@
+services:
+  server:
+    ports:
+      - "3001:3001"
+  client:
+    ports:
+      - "5173:80"

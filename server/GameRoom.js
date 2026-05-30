@@ -11,30 +11,27 @@ function createDeck() {
       deck.push({ id: uuidv4(), color, type: 'number', value: n });
     }
     for (let i = 0; i < 2; i++) {
-      deck.push({ id: uuidv4(), color, type: 'skip',       value: 'skip' });
-      deck.push({ id: uuidv4(), color, type: 'reverse',    value: 'reverse' });
-      deck.push({ id: uuidv4(), color, type: 'draw-two',   value: '+2',  drawValue: 2 });
-      // No Mercy special colored cards (2x each per color)
-      deck.push({ id: uuidv4(), color, type: 'draw-four',  value: '+4',  drawValue: 4 });
-      deck.push({ id: uuidv4(), color, type: 'draw-six',   value: '+6',  drawValue: 6 });
-      deck.push({ id: uuidv4(), color, type: 'draw-ten',   value: '+10', drawValue: 10 });
-      deck.push({ id: uuidv4(), color, type: 'skip-all',   value: 'skip-all' });
-      deck.push({ id: uuidv4(), color, type: 'discard-all',value: 'discard-all' });
+      deck.push({ id: uuidv4(), color, type: 'skip', value: 'skip' });
+      deck.push({ id: uuidv4(), color, type: 'reverse', value: 'reverse' });
+      deck.push({ id: uuidv4(), color, type: 'draw-two', value: '+2', drawValue: 2 });
     }
+    // No Mercy special colored cards
+    deck.push({ id: uuidv4(), color, type: 'draw-six',   value: '+6',        drawValue: 6 });
+    deck.push({ id: uuidv4(), color, type: 'draw-ten',   value: '+10',       drawValue: 10 });
+    deck.push({ id: uuidv4(), color, type: 'skip-all',   value: 'skip-all' });
+    deck.push({ id: uuidv4(), color, type: 'discard-all',value: 'discard-all' });
   }
   // Standard wilds x4
   for (let i = 0; i < 4; i++) {
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild',           value: 'wild' });
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-four', value: '+4', drawValue: 4 });
   }
-  // No Mercy special wilds — draw-6/10 x3, reverse/roulette x2
-  for (let i = 0; i < 3; i++) {
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-six',  value: '+6',  drawValue: 6 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-ten',  value: '+10', drawValue: 10 });
-  }
+  // No Mercy special wilds x2
   for (let i = 0; i < 2; i++) {
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-reverse-draw-four', value: 'عكس+4', drawValue: 4 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-color-roulette',    value: 'روليت' });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-six',         value: '+6',     drawValue: 6 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-ten',         value: '+10',    drawValue: 10 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-reverse-draw-four',value: 'عكس+4', drawValue: 4 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-color-roulette',   value: 'روليت' });
   }
   return deck;
 }
@@ -78,13 +75,12 @@ class GameRoom {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
-    this.lastDrawValue = 0;
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
     this.pendingColorRoulettePlayerId = null;
+    this.rouletteChosenColor = null;
     this.currentColor = null;
-    this.pendingDrawnPlay = false;
     // Punishment mode
     this.punishmentMode = false;
     this.segments = DEFAULT_SEGMENTS.map(s => ({ ...s }));
@@ -127,12 +123,10 @@ class GameRoom {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
-    this.lastDrawValue = 0;
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
     this.pendingColorRoulettePlayerId = null;
-    this.pendingDrawnPlay = false;
 
     for (const player of this.players) {
       player.hand = [];
@@ -206,7 +200,7 @@ class GameRoom {
     const top = this.discardPile[this.discardPile.length - 1];
 
     if (this.pendingDraw > 0) {
-      return (card.drawValue || 0) >= this.lastDrawValue;
+      return (card.drawValue || 0) >= this.pendingDraw;
     }
 
     if (card.color === 'wild') return true;
@@ -261,7 +255,6 @@ class GameRoom {
 
     player.hand.splice(cardIndex, 1);
     player.unoCalled = false;
-    this.pendingDrawnPlay = false;
 
     if (this._isWildCard(card.type)) {
       card.chosenColor = COLORS.includes(chosenColor) ? chosenColor : 'red';
@@ -310,11 +303,6 @@ class GameRoom {
 
       case 'draw-two':
         this.pendingDraw += 2;
-        this._advanceTurn(1);
-        break;
-
-      case 'draw-four':
-        this.pendingDraw += 4;
         this._advanceTurn(1);
         break;
 
@@ -396,11 +384,6 @@ class GameRoom {
         this._advanceTurn(1);
     }
 
-    // Track the last-played draw value so stacking check compares against it, not the total
-    if (card.drawValue && this.pendingDraw > 0) {
-      this.lastDrawValue = card.drawValue;
-    }
-
     this._checkUnoPenalties(playerId);
     return { card };
   }
@@ -417,7 +400,6 @@ class GameRoom {
     if (this.pendingDraw > 0) {
       const count = this.pendingDraw;
       this.pendingDraw = 0;
-      this.lastDrawValue = 0;
       this._drawCards(player, count);
       const eliminated = this._checkMercyRule(player);
       if (!eliminated) this._advanceTurn(1);
@@ -436,25 +418,8 @@ class GameRoom {
     } while (!this._isPlayable(drawnCard) && drew < 30);
 
     const eliminated = this._checkMercyRule(player);
-    if (eliminated) return { drew, eliminated };
-
-    // If the drawn card is playable, keep the turn so the player can choose to play it
-    if (drawnCard && this._isPlayable(drawnCard)) {
-      this.pendingDrawnPlay = true;
-    } else {
-      this._advanceTurn(1);
-    }
-    return { drew, eliminated, canPlay: this.pendingDrawnPlay };
-  }
-
-  passTurn(playerId) {
-    const pIdx = this.players.findIndex(p => p.id === playerId);
-    if (pIdx === -1)                   return { error: 'لاعب غير موجود' };
-    if (pIdx !== this.currentPlayerIndex) return { error: 'ليس دورك' };
-    if (!this.pendingDrawnPlay)        return { error: 'لا يوجد سحب معلق' };
-    this.pendingDrawnPlay = false;
-    this._advanceTurn(1);
-    return { ok: true };
+    if (!eliminated) this._advanceTurn(1);
+    return { drew, eliminated };
   }
 
   sevenSwap(playerId, targetPlayerId) {
@@ -476,32 +441,55 @@ class GameRoom {
     return { swapped: true };
   }
 
-  // Next player picked color → draw until that color appears
+  // اللاعب التالي يختار اللون — يُحفظ ويبدأ السحب ورقة ورقة
   colorRoulettePick(playerId, chosenColor) {
     if (!this.pendingColorRoulette)                    return { error: 'لا يوجد روليت معلق' };
     if (playerId !== this.pendingColorRoulettePlayerId) return { error: 'ليس روليتك' };
     if (!COLORS.includes(chosenColor))                  return { error: 'لون غير صالح' };
 
+    // حفظ اللون — الآن اللاعب يضغط الدكة ورقة ورقة
+    this.rouletteChosenColor = chosenColor;
+    this.currentColor = chosenColor;
+    return { colorChosen: true, chosenColor };
+  }
+
+  // كل ضغطة على الدكة أثناء الروليت = ورقة وحدة
+  rouletteDraw(playerId) {
+    if (!this.pendingColorRoulette)                    return { error: 'لا يوجد روليت معلق' };
+    if (playerId !== this.pendingColorRoulettePlayerId) return { error: 'ليس روليتك' };
+    if (!this.rouletteChosenColor)                     return { error: 'اختر اللون أولاً' };
+
     const player = this.players.find(p => p.id === playerId);
     if (!player) return { error: 'لاعب غير موجود' };
 
-    let drew = 0;
-    let drawnCard;
-    do {
-      if (this.deck.length === 0) this._reshuffleDeck();
-      if (this.deck.length === 0) break;
-      drawnCard = this.deck.pop();
-      player.hand.push(drawnCard);
-      drew++;
-    } while (drawnCard.color !== chosenColor && drew < 40);
+    if (this.deck.length === 0) this._reshuffleDeck();
+    if (this.deck.length === 0) return { error: 'الدكة فارغة' };
 
-    this.currentColor = chosenColor;
-    this.pendingColorRoulette = false;
-    this.pendingColorRoulettePlayerId = null;
+    const drawnCard = this.deck.pop();
+    player.hand.push(drawnCard);
 
+    const found = drawnCard.color === this.rouletteChosenColor;
+
+    if (found) {
+      // وجد اللون — ينتهي الروليت
+      this.pendingColorRoulette = false;
+      this.pendingColorRoulettePlayerId = null;
+      this.rouletteChosenColor = null;
+      const eliminated = this._checkMercyRule(player);
+      if (!eliminated) this._advanceTurn(1);
+      return { drew: 1, card: drawnCard, found: true, eliminated };
+    }
+
+    // لم يجد — يكمل السحب
     const eliminated = this._checkMercyRule(player);
-    if (!eliminated) this._advanceTurn(1);  // player loses their turn
-    return { drew, eliminated };
+    if (eliminated) {
+      this.pendingColorRoulette = false;
+      this.pendingColorRoulettePlayerId = null;
+      this.rouletteChosenColor = null;
+      return { drew: 1, card: drawnCard, found: false, eliminated: true };
+    }
+
+    return { drew: 1, card: drawnCard, found: false, eliminated: false };
   }
 
   callUno(playerId) {
@@ -561,10 +549,6 @@ class GameRoom {
         this.pendingDraw += 2;
         this._advanceTurn(1);
         break;
-      case 'draw-four':
-        this.pendingDraw += 4;
-        this._advanceTurn(1);
-        break;
       case 'draw-six':
         this.pendingDraw += 6;
         this._advanceTurn(1);
@@ -585,10 +569,6 @@ class GameRoom {
       }
       default:
         this._advanceTurn(1);
-    }
-
-    if (card.drawValue && this.pendingDraw > 0) {
-      this.lastDrawValue = card.drawValue;
     }
 
     this._checkUnoPenalties(playerId);
@@ -713,12 +693,11 @@ class GameRoom {
       currentPlayerId: this.players[this.currentPlayerIndex]?.id,
       direction: this.direction,
       pendingDraw: this.pendingDraw,
-      lastDrawValue: this.lastDrawValue,
       pendingSevenSwap: this.pendingSevenSwap,
       pendingSevenPlayerId: this.pendingSevenPlayerId,
       pendingColorRoulette: this.pendingColorRoulette,
       pendingColorRoulettePlayerId: this.pendingColorRoulettePlayerId,
-      pendingDrawnPlay: this.pendingDrawnPlay,
+      rouletteChosenColor: this.rouletteChosenColor,
       deckCount: this.deck.length,
     };
   }
