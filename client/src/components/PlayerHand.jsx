@@ -1,53 +1,105 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card } from './Card';
 
-// حجم ثابت — sm دايماً
-const CARD_W = 52;
-const CARD_H = 78;
-// أقل عرض مرئي لكل ورقة (نص الورقة = 26px)
-const MIN_SHOW = 26;
-// هامش جانبي ثابت
-const PAD = 14;
+/* ─────────────────────────────────────────────
+   Constants
+───────────────────────────────────────────── */
+const CARD_W   = 56;   // عرض الكارت sm
+const CARD_H   = 84;   // ارتفاع الكارت sm  (نسبة 1:1.5)
+const MIN_SHOW = 24;   // أقل مساحة مرئية أفقياً لكل ورقة
+const H_PAD    = 16;   // هامش أفقي — يمنع لمس الحواف
+const LIFT     = 32;   // ارتفاع الورقة عند الاختيار
+const ROW_GAP  = 6;    // مسافة بين الصفين
 
-function calcOverlap(count, winW) {
-  const avail = winW - PAD * 2;
-  // بلا تداخل
-  if (CARD_W * count <= avail) return { overlap: 0, rows: 1 };
-  // صف واحد بتداخل — minimum 26px مرئي
+/* ─────────────────────────────────────────────
+   Layout Calculator
+───────────────────────────────────────────── */
+function calcLayout(count, winW) {
+  if (count === 0) return { overlap: 0, rows: 1, cardW: CARD_W, cardH: CARD_H };
+
+  // الفضاء المتاح بعد الهوامش
+  const avail = winW - H_PAD * 2;
+
+  // ─ جرب صف واحد ─
+  if (CARD_W * count <= avail) {
+    return { overlap: 0, rows: 1, cardW: CARD_W, cardH: CARD_H };
+  }
+
   const overlap1 = Math.ceil((CARD_W * count - avail) / Math.max(count - 1, 1));
-  if (overlap1 <= CARD_W - MIN_SHOW) return { overlap: overlap1, rows: 1 };
-  // صفين
-  const half = Math.ceil(count / 2);
-  const overlap2 = Math.max(0, Math.ceil((CARD_W * half - avail) / Math.max(half - 1, 1)));
-  return { overlap: Math.min(overlap2, CARD_W - MIN_SHOW), rows: 2 };
+  if (overlap1 <= CARD_W - MIN_SHOW) {
+    return { overlap: overlap1, rows: 1, cardW: CARD_W, cardH: CARD_H };
+  }
+
+  // ─ جرب صفين ─
+  const half     = Math.ceil(count / 2);
+  const overlap2 = Math.max(
+    0,
+    Math.ceil((CARD_W * half - avail) / Math.max(half - 1, 1))
+  );
+
+  return {
+    overlap: Math.min(overlap2, CARD_W - MIN_SHOW),
+    rows: 2,
+    cardW: CARD_W,
+    cardH: CARD_H,
+  };
 }
 
+/* ─────────────────────────────────────────────
+   Glow color per card
+───────────────────────────────────────────── */
+const GLOW = {
+  red:    'rgba(220,38,38,0.7)',
+  green:  'rgba(22,163,74,0.7)',
+  blue:   'rgba(37,99,235,0.7)',
+  yellow: 'rgba(217,119,6,0.7)',
+  wild:   'rgba(167,139,250,0.7)',
+};
+
+/* ─────────────────────────────────────────────
+   PlayerHand Component
+───────────────────────────────────────────── */
 export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
-  const topCard     = gameState?.topCard;
-  const currentColor= gameState?.currentColor;
-  const pendingDraw = gameState?.pendingDraw || 0;
+  const topCard      = gameState?.topCard;
+  const currentColor = gameState?.currentColor;
+  const pendingDraw  = gameState?.pendingDraw || 0;
 
   const [selectedIdx, setSelectedIdx] = useState(null);
-  const [unoPressed, setUnoPressed]   = useState(false);
-  const [winW, setWinW] = useState(typeof window !== 'undefined' ? window.innerWidth : 390);
+  const [unoPressed,  setUnoPressed]  = useState(false);
+  const [winW, setWinW] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 390
+  );
 
+  /* ── window resize ── */
   useEffect(() => {
     const fn = () => setWinW(window.innerWidth);
     window.addEventListener('resize', fn);
     return () => window.removeEventListener('resize', fn);
   }, []);
 
-  useEffect(() => { setSelectedIdx(null); setUnoPressed(false); }, [hand.length]);
+  /* ── reset on hand change ── */
+  useEffect(() => {
+    setSelectedIdx(null);
+    setUnoPressed(false);
+  }, [hand.length]);
 
-  const { overlap, rows } = useMemo(() => calcOverlap(hand.length, winW), [hand.length, winW]);
-
-  const perRow    = Math.ceil(hand.length / rows);
-  const rowArrays = Array.from({ length: rows }, (_, r) =>
-    hand.slice(r * perRow, (r + 1) * perRow)
+  /* ── layout ── */
+  const { overlap, rows, cardW, cardH } = useMemo(
+    () => calcLayout(hand.length, winW),
+    [hand.length, winW]
   );
 
-  function isPlayable(card) {
+  const perRow    = Math.ceil(hand.length / rows);
+  const rowArrays = useMemo(
+    () => Array.from({ length: rows }, (_, r) =>
+      hand.slice(r * perRow, (r + 1) * perRow)
+    ),
+    [hand, rows, perRow]
+  );
+
+  /* ── game logic (unchanged) ── */
+  const isPlayable = useCallback((card) => {
     if (!isMyTurn) return false;
     if (pendingDraw > 0) return (card.drawValue || 0) >= pendingDraw;
     if (card.color === 'wild') return true;
@@ -57,17 +109,18 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     if (card.type !== 'number' && topCard.color !== 'wild' && card.type === topCard.type) return true;
     if (card.type === 'number' && topCard.type === 'number' && card.value === topCard.value) return true;
     return false;
-  }
+  }, [isMyTurn, pendingDraw, topCard, currentColor]);
 
-  function isJumpable(card) {
+  const isJumpable = useCallback((card) => {
     if (!topCard || isMyTurn) return false;
     return (
       card.color === topCard.color &&
       card.type  === topCard.type &&
       (card.type !== 'number' || card.value === topCard.value)
     );
-  }
+  }, [topCard, isMyTurn]);
 
+  /* ── tap handler (unchanged logic) ── */
   function handleTap(globalIdx, card, jumpable) {
     const active = isPlayable(card) || jumpable;
     if (!active) { setSelectedIdx(null); return; }
@@ -81,19 +134,20 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
 
   const hasUno      = hand.length === 1;
   const hasPlayable = hand.some(isPlayable);
-  // ارتفاع الرفع عند الاختيار
-  const LIFT = 28;
 
+  /* ─────────────────────────────────────────
+     Row Renderer
+  ───────────────────────────────────────── */
   function renderRow(cards, startIdx) {
     return (
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'flex-end',
-        // ارتفاع الصف = الكارت + مساحة الرفع فوقه
-        height: CARD_H + LIFT,
-        paddingTop: LIFT,
+        height: cardH + LIFT + 4,
+        paddingTop: LIFT + 4,
         position: 'relative',
+        overflow: 'visible',
       }}>
         {cards.map((card, i) => {
           const gIdx     = startIdx + i;
@@ -101,94 +155,131 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
           const jumpable = isJumpable(card);
           const active   = playable || jumpable;
           const selected = selectedIdx === gIdx;
-          const dimmed   = isMyTurn && !active && !selected;
+          const dimmed   = isMyTurn && !active;
+          const glowColor = GLOW[card.color] || GLOW.wild;
 
           return (
             <motion.div
               key={card.id}
-              initial={{ y: 50, opacity: 0 }}
+              initial={{ y: 60, opacity: 0, scale: 0.8 }}
               animate={{
-                y: selected ? -LIFT : 0,
-                scale: selected ? 1.10 : 1,
+                y:       selected ? -(LIFT) : 0,
+                scale:   selected ? 1.12 : 1,
                 opacity: 1,
-                zIndex: selected ? 999 : i,
+                zIndex:  selected ? 999 : i + 1,
+                filter:  selected
+                  ? `drop-shadow(0 0 10px ${glowColor}) drop-shadow(0 8px 20px rgba(0,0,0,0.6))`
+                  : active
+                    ? `drop-shadow(0 2px 6px rgba(0,0,0,0.4))`
+                    : 'none',
               }}
-              exit={{ y: -30, opacity: 0, scale: 0.8 }}
+              exit={{ y: -40, opacity: 0, scale: 0.75 }}
               transition={{
-                y:       { type: 'spring', stiffness: 420, damping: 30 },
-                scale:   { type: 'spring', stiffness: 420, damping: 30 },
-                opacity: { duration: 0.12, delay: i * 0.01 },
+                y:       { type: 'spring', stiffness: 450, damping: 32 },
+                scale:   { type: 'spring', stiffness: 450, damping: 32 },
+                filter:  { duration: 0.15 },
+                opacity: { duration: 0.14, delay: Math.min(i * 0.008, 0.12) },
               }}
               style={{
-                marginLeft: i === 0 ? 0 : -overlap,
-                flexShrink: 0,
-                position: 'relative',
-                cursor: active ? 'pointer' : 'default',
+                marginLeft:  i === 0 ? 0 : -overlap,
+                flexShrink:  0,
+                position:    'relative',
+                cursor:      active ? 'pointer' : 'default',
+                touchAction: 'manipulation',
               }}
               onClick={() => handleTap(gIdx, card, jumpable)}
             >
-              {/* حلقة الاختيار */}
-              {selected && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  style={{
-                    position: 'absolute', inset: -3, borderRadius: 11,
-                    border: '2px solid rgba(255,255,255,0.9)',
-                    boxShadow: '0 0 12px rgba(255,255,255,0.4)',
-                    zIndex: 0, pointerEvents: 'none',
-                  }}
-                />
-              )}
+              {/* ── Selection ring ── */}
+              <AnimatePresence>
+                {selected && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12 }}
+                    style={{
+                      position:      'absolute',
+                      inset:         -4,
+                      borderRadius:  12,
+                      border:        '2.5px solid rgba(255,255,255,0.95)',
+                      boxShadow:     `0 0 0 3px ${glowColor}, 0 0 18px ${glowColor}`,
+                      zIndex:        0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+              </AnimatePresence>
 
-              {/* حلقة jump-in */}
+              {/* ── Jump-in pulse ── */}
               {jumpable && !selected && (
                 <motion.div
-                  animate={{ opacity: [0.2, 0.9, 0.2] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
+                  animate={{ opacity: [0.15, 0.85, 0.15], scale: [1, 1.04, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.1, ease: 'easeInOut' }}
                   style={{
-                    position: 'absolute', inset: -2, borderRadius: 9,
-                    border: '2px solid #D97706',
-                    background: 'rgba(217,119,6,0.1)',
-                    zIndex: 0, pointerEvents: 'none',
+                    position:      'absolute',
+                    inset:         -3,
+                    borderRadius:  10,
+                    border:        '2px solid #F59E0B',
+                    background:    'rgba(245,158,11,0.08)',
+                    zIndex:        0,
+                    pointerEvents: 'none',
                   }}
                 />
               )}
 
-              {/* الكارت */}
+              {/* ── Card ── */}
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <Card card={card} isPlayable={active} size="sm" onClick={() => {}} />
-                {/* تعتيم الأوراق غير القابلة */}
+
+                {/* dim overlay */}
                 {dimmed && (
-                  <div style={{
-                    position: 'absolute', inset: 0, borderRadius: 8,
-                    background: 'rgba(0,0,0,0.55)',
-                    zIndex: 2, pointerEvents: 'none',
-                  }} />
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    style={{
+                      position:      'absolute',
+                      inset:         0,
+                      borderRadius:  8,
+                      background:    'rgba(0,0,0,0.52)',
+                      zIndex:        2,
+                      pointerEvents: 'none',
+                    }}
+                  />
                 )}
               </div>
 
-              {/* "العب" تحت الورقة المختارة */}
-              {selected && (
-                <motion.div
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{
-                    position: 'absolute', bottom: -20, left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'rgba(255,255,255,0.15)',
-                    backdropFilter: 'blur(4px)',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    borderRadius: 6, padding: '2px 8px',
-                    fontSize: 9, color: '#fff',
-                    fontFamily: 'var(--font-head)', letterSpacing: 1,
-                    whiteSpace: 'nowrap', zIndex: 1000,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  ▶ العب
-                </motion.div>
-              )}
+              {/* ── "Play" label ── */}
+              <AnimatePresence>
+                {selected && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.14 }}
+                    style={{
+                      position:        'absolute',
+                      bottom:          -22,
+                      left:            '50%',
+                      transform:       'translateX(-50%)',
+                      background:      'rgba(255,255,255,0.14)',
+                      backdropFilter:  'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      border:          '1px solid rgba(255,255,255,0.28)',
+                      borderRadius:    8,
+                      padding:         '2px 9px',
+                      fontSize:        9,
+                      fontWeight:      600,
+                      color:           '#fff',
+                      letterSpacing:   1.5,
+                      whiteSpace:      'nowrap',
+                      zIndex:          1000,
+                      pointerEvents:   'none',
+                    }}
+                  >
+                    ▶ العب
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           );
         })}
@@ -196,66 +287,185 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     );
   }
 
+  /* ─────────────────────────────────────────
+     Render
+  ───────────────────────────────────────── */
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div style={{
+      display:       'flex',
+      flexDirection: 'column',
+      width:         '100%',
+      /* Safe Area — iPhone notch / home bar */
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+    }}>
 
-      {/* UNO */}
-      <div style={{ display: 'flex', justifyContent: 'center', height: 36, alignItems: 'center' }}>
+      {/* ── UNO Button ── */}
+      <div style={{
+        display:        'flex',
+        justifyContent: 'center',
+        alignItems:     'center',
+        height:         42,
+        paddingTop:     6,
+      }}>
         <AnimatePresence>
           {hasUno && (
             <motion.button
-              key="uno"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              whileTap={{ scale: 0.88 }}
-              onClick={() => { if (!unoPressed) { setUnoPressed(true); onCallUno?.(); } }}
+              key="uno-btn"
+              initial={{ scale: 0, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0, opacity: 0, y: 10 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+              whileHover={!unoPressed ? { scale: 1.06 } : {}}
+              whileTap={!unoPressed ? { scale: 0.88 } : {}}
+              onClick={() => {
+                if (!unoPressed) { setUnoPressed(true); onCallUno?.(); }
+              }}
               style={{
-                background: unoPressed ? '#1F2937' : 'linear-gradient(135deg,#F43F5E,#BE123C)',
-                border: `1.5px solid ${unoPressed ? '#374151' : '#FB7185'}`,
-                borderRadius: 20, padding: '5px 22px',
-                fontFamily: 'var(--font-head)', fontSize: 15,
-                color: unoPressed ? '#4B5563' : '#fff',
-                cursor: unoPressed ? 'default' : 'pointer',
+                position:     'relative',
+                background:   unoPressed
+                  ? 'rgba(30,41,59,0.8)'
+                  : 'linear-gradient(135deg, #F43F5E 0%, #BE123C 100%)',
+                border:       `1.5px solid ${unoPressed ? 'rgba(71,85,105,0.6)' : 'rgba(251,113,133,0.7)'}`,
+                borderRadius: 24,
+                padding:      '8px 28px',
+                fontFamily:   'var(--font-head)',
+                fontSize:     16,
+                fontWeight:   700,
+                color:        unoPressed ? '#475569' : '#fff',
+                cursor:       unoPressed ? 'default' : 'pointer',
                 letterSpacing: 3,
-                boxShadow: unoPressed ? 'none' : '0 0 20px rgba(244,63,94,0.45)',
+                boxShadow:    unoPressed
+                  ? 'none'
+                  : '0 0 24px rgba(244,63,94,0.5), 0 4px 14px rgba(0,0,0,0.4)',
+                transition:   'background 0.2s, box-shadow 0.2s, color 0.2s',
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
               }}
             >
+              {/* pulse ring */}
+              {!unoPressed && (
+                <motion.span
+                  animate={{ scale: [1, 1.5, 1.5], opacity: [0.6, 0, 0] }}
+                  transition={{ repeat: Infinity, duration: 1.6, ease: 'easeOut' }}
+                  style={{
+                    position:     'absolute',
+                    inset:        0,
+                    borderRadius: 24,
+                    border:       '2px solid rgba(244,63,94,0.5)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
               {unoPressed ? '✓ UNO' : 'UNO!'}
             </motion.button>
           )}
         </AnimatePresence>
       </div>
 
-      {/* الأوراق */}
-      <div style={{ padding: `0 ${PAD}px`, overflow: 'visible' }}>
+      {/* ── Card Tray ── */}
+      <div style={{
+        margin:           '0 8px 4px',
+        background:       'rgba(15,10,40,0.55)',
+        backdropFilter:   'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        border:           '1px solid rgba(255,255,255,0.08)',
+        borderRadius:     '20px 20px 16px 16px',
+        boxShadow:        '0 -4px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
+        overflow:         'visible',
+        /* هامش داخلي يضمن عدم لمس الحواف */
+        padding:          `6px ${H_PAD}px 10px`,
+      }}>
+
+        {/* rows */}
         <AnimatePresence>
           {rowArrays.map((rowCards, ri) => (
-            <div key={ri} style={{ overflow: 'visible' }}>
+            <div
+              key={ri}
+              style={{
+                overflow:     'visible',
+                marginBottom: ri < rows - 1 ? ROW_GAP : 0,
+              }}
+            >
               {renderRow(rowCards, ri * perRow)}
             </div>
           ))}
         </AnimatePresence>
-      </div>
 
-      {/* شريط الحالة */}
-      <div style={{
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        gap: 8, padding: '5px 0 4px',
-        fontSize: 10, fontFamily: 'var(--font-head)',
-        color: hand.length >= 20 ? '#EF4444' : '#334155',
-      }}>
-        {hand.length >= 20 && <span>⚠️</span>}
-        <span>{hand.length} / 25</span>
-        {isMyTurn && !hasPlayable && pendingDraw === 0 && (
-          <span style={{ color: '#7C3AED' }}>· اسحب</span>
-        )}
-        {isMyTurn && pendingDraw > 0 && !hasPlayable && (
-          <span style={{ color: '#EF4444' }}>· اسحب +{pendingDraw}</span>
-        )}
-        {selectedIdx !== null && (
-          <span style={{ color: '#A78BFA' }}>· اضغط ثانية للعب</span>
-        )}
+        {/* ── Status bar ── */}
+        <div style={{
+          display:        'flex',
+          justifyContent: 'center',
+          alignItems:     'center',
+          gap:            6,
+          paddingTop:     6,
+          minHeight:      20,
+        }}>
+          {/* card count pill */}
+          <div style={{
+            display:      'flex',
+            alignItems:   'center',
+            gap:          4,
+            background:   hand.length >= 20
+              ? 'rgba(239,68,68,0.18)'
+              : 'rgba(255,255,255,0.07)',
+            border:       `1px solid ${hand.length >= 20 ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 20,
+            padding:      '2px 10px',
+          }}>
+            {hand.length >= 20 && (
+              <span style={{ fontSize: 10 }}>⚠️</span>
+            )}
+            <span style={{
+              fontSize:    10,
+              fontFamily:  'var(--font-head)',
+              fontWeight:  600,
+              letterSpacing: 1,
+              color:       hand.length >= 20 ? '#FCA5A5' : '#94A3B8',
+            }}>
+              {hand.length} / 25
+            </span>
+          </div>
+
+          {/* hint */}
+          <AnimatePresence mode="wait">
+            {isMyTurn && !hasPlayable && pendingDraw === 0 && (
+              <motion.span
+                key="draw-hint"
+                initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                style={{
+                  fontSize: 10, color: '#A78BFA',
+                  fontFamily: 'var(--font-head)', letterSpacing: 1,
+                }}
+              >
+                · اسحب
+              </motion.span>
+            )}
+            {isMyTurn && pendingDraw > 0 && !hasPlayable && (
+              <motion.span
+                key="pending-hint"
+                initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                style={{
+                  fontSize: 10, color: '#FCA5A5',
+                  fontFamily: 'var(--font-head)', letterSpacing: 1,
+                }}
+              >
+                · اسحب +{pendingDraw}
+              </motion.span>
+            )}
+            {selectedIdx !== null && (
+              <motion.span
+                key="play-hint"
+                initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                style={{
+                  fontSize: 10, color: '#A78BFA',
+                  fontFamily: 'var(--font-head)', letterSpacing: 1,
+                }}
+              >
+                · اضغط ثانية للعب
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
