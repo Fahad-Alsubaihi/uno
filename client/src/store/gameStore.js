@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 
-const DEFAULT_PENALTIES = [
-  'اشرب كوب ماء كامل',
-  'قلد صوت حيوان 10 ثواني',
-  'قول مدح لكل لاعب',
-  'افعل 10 ضغط',
-  'غني مقطع',
-  'قل سراً محرجاً',
-  'العب الجولة القادمة بيدك العكسية',
-  'تخطي دورك مرتين',
+const DEFAULT_SEGMENTS = [
+  { id: '1', type: 'punishment', text: 'اشرب كوب ماء كامل',               size: 3, color: '#EF4444' },
+  { id: '2', type: 'punishment', text: 'قلد صوت حيوان 10 ثواني',           size: 2, color: '#F97316' },
+  { id: '3', type: 'luck',       text: 'retry',                            size: 2, color: '#7C3AED' },
+  { id: '4', type: 'punishment', text: 'افعل 10 ضغط',                     size: 3, color: '#EC4899' },
+  { id: '5', type: 'punishment', text: 'غني مقطع',                         size: 2, color: '#DC2626' },
+  { id: '6', type: 'luck',       text: 'reverse',                          size: 1, color: '#2563EB' },
+  { id: '7', type: 'punishment', text: 'قل سراً محرجاً',                   size: 2, color: '#B45309' },
+  { id: '8', type: 'punishment', text: 'تخطي دورك مرتين',                  size: 2, color: '#EA580C' },
 ];
 
 export const useGameStore = create((set) => ({
@@ -23,17 +23,14 @@ export const useGameStore = create((set) => ({
   error: null,
   notification: null,
 
-  // Punishment mode state
   punishment: {
     enabled: false,
-    penalties: [...DEFAULT_PENALTIES],
-    wheelOptions: { execute: 60, retry: 20, reverse: 20 },
+    segments: DEFAULT_SEGMENTS.map(s => ({ ...s })),
     approvals: [],
     totalPlayers: 0,
-    currentPenalty: null,
   },
-  wheelResult: null,   // { result, punishment, retryCount, loserName, winnerName }
   showWheel: false,
+  wheelResult: null,
 
   setScreen: (screen) => set({ screen }),
   setPlayerName: (playerName) => set({ playerName }),
@@ -46,30 +43,27 @@ export const useGameStore = create((set) => ({
   setError: (error) => set({ error }),
   setNotification: (notification) => set({ notification }),
   setPunishment: (punishment) => set({ punishment }),
-  setWheelResult: (wheelResult) => set({ wheelResult }),
   setShowWheel: (showWheel) => set({ showWheel }),
+  setWheelResult: (wheelResult) => set({ wheelResult }),
 
-  reset: () =>
-    set({
-      screen: 'home',
-      playerName: '',
-      playerId: null,
-      roomCode: null,
-      roomPlayers: [],
-      gameState: null,
-      winner: null,
-      loser: null,
-      error: null,
-      notification: null,
-      wheelResult: null,
-      showWheel: false,
-      punishment: {
-        enabled: false,
-        penalties: [...DEFAULT_PENALTIES],
-        wheelOptions: { execute: 60, retry: 20, reverse: 20 },
-        approvals: [],
-        totalPlayers: 0,
-        currentPenalty: null,
-      },
-    }),
+  reset: () => set({
+    screen: 'home',
+    playerName: '',
+    playerId: null,
+    roomCode: null,
+    roomPlayers: [],
+    gameState: null,
+    winner: null,
+    loser: null,
+    error: null,
+    notification: null,
+    showWheel: false,
+    wheelResult: null,
+    punishment: {
+      enabled: false,
+      segments: DEFAULT_SEGMENTS.map(s => ({ ...s })),
+      approvals: [],
+      totalPlayers: 0,
+    },
+  }),
 }));

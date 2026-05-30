@@ -47,15 +47,21 @@ function shuffle(arr) {
 
 const MERCY_LIMIT = 25;
 
-const DEFAULT_PENALTIES = [
-  'اشرب كوب ماء كامل',
-  'قلد صوت حيوان 10 ثواني',
-  'قول مدح لكل لاعب',
-  'افعل 10 ضغط',
-  'غني مقطع',
-  'قل سراً محرجاً',
-  'العب الجولة القادمة بيدك العكسية',
-  'تخطي دورك مرتين',
+const WARM = ['#EF4444','#F97316','#EC4899','#DC2626','#B45309','#EA580C','#DB2777','#991B1B'];
+const COOL = ['#7C3AED','#2563EB','#0891B2','#4F46E5'];
+
+let _sid = 1;
+function sid() { return String(_sid++); }
+
+const DEFAULT_SEGMENTS = [
+  { id: sid(), type: 'punishment', text: 'اشرب كوب ماء كامل',               size: 3, color: '#EF4444' },
+  { id: sid(), type: 'punishment', text: 'قلد صوت حيوان 10 ثواني',           size: 2, color: '#F97316' },
+  { id: sid(), type: 'luck',       text: 'retry',                            size: 2, color: '#7C3AED' },
+  { id: sid(), type: 'punishment', text: 'افعل 10 ضغط',                     size: 3, color: '#EC4899' },
+  { id: sid(), type: 'punishment', text: 'غني مقطع',                         size: 2, color: '#DC2626' },
+  { id: sid(), type: 'luck',       text: 'reverse',                          size: 1, color: '#2563EB' },
+  { id: sid(), type: 'punishment', text: 'قل سراً محرجاً',                   size: 2, color: '#B45309' },
+  { id: sid(), type: 'punishment', text: 'تخطي دورك مرتين',                  size: 2, color: '#EA580C' },
 ];
 
 class GameRoom {
@@ -76,13 +82,12 @@ class GameRoom {
     this.currentColor = null;
     // Punishment mode
     this.punishmentMode = false;
-    this.penalties = [...DEFAULT_PENALTIES];
-    this.wheelOptions = { execute: 60, retry: 20, reverse: 20 };
+    this.segments = DEFAULT_SEGMENTS.map(s => ({ ...s }));
     this.punishmentApprovals = new Set();
     this.wheelRetryCount = 0;
+    this.wheelCumAngle = 0;
     this.currentSpinnerId = null;
     this.currentSpinnerName = null;
-    this.currentPenalty = null;
     this.lastWinner = null;
   }
 
@@ -555,18 +560,10 @@ class GameRoom {
     return { ok: true };
   }
 
-  setPenalties(playerId, penalties) {
+  setSegments(playerId, segments) {
     if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
-    if (!Array.isArray(penalties) || penalties.length === 0) return { error: 'قائمة فارغة' };
-    this.penalties = penalties.slice(0, 20);
-    return { ok: true };
-  }
-
-  setWheelOptions(playerId, options) {
-    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
-    const { execute, retry, reverse } = options;
-    if (Math.round(execute + retry + reverse) !== 100) return { error: 'المجموع يجب أن يكون 100' };
-    this.wheelOptions = { execute, retry, reverse };
+    if (!Array.isArray(segments) || segments.length < 2) return { error: 'يجب أن يكون هناك قسمان على الأقل' };
+    this.segments = segments.slice(0, 20);
     return { ok: true };
   }
 
@@ -578,40 +575,74 @@ class GameRoom {
   spinWheel(playerId) {
     if (!this.punishmentMode) return { error: 'وضع العقوبات غير مفعّل' };
     if (playerId !== this.currentSpinnerId) return { error: 'ليس دورك للدوران' };
+    if (!this.segments || this.segments.length === 0) return { error: 'لا توجد أقسام' };
 
-    const rand = Math.random() * 100;
-    const { execute, retry, reverse } = this.wheelOptions;
-    let result;
-    if (rand < execute) result = 'execute';
-    else if (rand < execute + retry) result = 'retry';
-    else result = 'reverse';
+    const segs = this.segments;
+    const totalSize = segs.reduce((s, g) => s + g.size, 0);
 
-    if (result === 'retry') {
-      this.wheelRetryCount++;
-      if (this.wheelRetryCount >= 3) {
-        result = 'execute';
-        this.wheelRetryCount = 0;
+    // Weighted random pick
+    let rand = Math.random() * totalSize;
+    let chosen = segs[segs.length - 1];
+    let cumAngle = 0;
+    let chosenStart = 0;
+    let chosenSpan = 0;
+
+    for (const seg of segs) {
+      const span = (seg.size / totalSize) * 360;
+      rand -= seg.size;
+      if (rand <= 0) {
+        chosen = seg;
+        chosenStart = cumAngle;
+        chosenSpan = span;
+        break;
       }
-    } else {
-      this.wheelRetryCount = 0;
+      cumAngle += span;
     }
 
-    if (result !== 'retry') this.currentSpinnerId = null;
+    // Pick random angle inside chosen segment, compute total wheel rotation
+    const landAngle = chosenStart + Math.random() * chosenSpan;
+    const baseStop = (360 - (landAngle % 360) + 360) % 360;
+    this.wheelCumAngle += 5 * 360 + baseStop;
+    const stopAngle = this.wheelCumAngle;
 
-    return {
-      result,
-      punishment: this.currentPenalty,
-      retryCount: this.wheelRetryCount,
-      loserName: this.currentSpinnerName,
-      winnerName: this.lastWinner?.name,
-    };
+    // Handle luck segments
+    if (chosen.type === 'luck') {
+      if (chosen.text === 'retry') {
+        this.wheelRetryCount = (this.wheelRetryCount || 0) + 1;
+        if (this.wheelRetryCount >= 3) {
+          // Force a random punishment
+          const punishments = segs.filter(s => s.type === 'punishment');
+          const forced = punishments[Math.floor(Math.random() * punishments.length)];
+          this.wheelRetryCount = 0;
+          this.currentSpinnerId = null;
+          return { type: 'execute', segment: forced, stopAngle, forced: true, loserName: this.currentSpinnerName };
+        }
+        // Allow retry — spinner stays
+        return { type: 'retry', segment: chosen, stopAngle, retryCount: this.wheelRetryCount, loserName: this.currentSpinnerName };
+      }
+      if (chosen.text === 'reverse') {
+        const punishments = segs.filter(s => s.type === 'punishment');
+        const punished = punishments[Math.floor(Math.random() * punishments.length)];
+        this.currentSpinnerId = null;
+        return {
+          type: 'reverse', segment: chosen, stopAngle,
+          punishment: punished?.text || 'عقوبة',
+          winnerName: this.lastWinner?.name,
+          loserName: this.currentSpinnerName,
+        };
+      }
+    }
+
+    // Regular punishment
+    this.wheelRetryCount = 0;
+    this.currentSpinnerId = null;
+    return { type: 'execute', segment: chosen, stopAngle, loserName: this.currentSpinnerName };
   }
 
   getPunishmentState() {
     return {
       enabled: this.punishmentMode,
-      penalties: this.penalties,
-      wheelOptions: this.wheelOptions,
+      segments: this.segments,
       approvals: [...this.punishmentApprovals],
       totalPlayers: this.players.length,
     };

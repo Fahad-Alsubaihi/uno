@@ -26,14 +26,13 @@ export function useSocket() {
     on('game-started', () => ref.current.setScreen('game'));
     on('game-state',   (s) => ref.current.setGameState(s));
 
-    on('game-over', ({ winner, loser, punishment }) => {
+    on('game-over', ({ winner, loser, punishmentMode }) => {
       ref.current.setWinner(winner);
       ref.current.setLoser(loser || null);
       const s = ref.current;
-      if (s.punishment?.enabled && loser) {
-        // Store current penalty in punishment state
-        ref.current.setPunishment({ ...s.punishment, currentPenalty: punishment });
-        ref.current.setShowWheel(true);
+      if ((punishmentMode || s.punishment?.enabled) && loser) {
+        ref.current.setShowWheel(false);   // reset so useEffect in WinnerScreen opens it
+        ref.current.setWheelResult(null);
       }
       ref.current.setScreen('winner');
     });
@@ -42,11 +41,11 @@ export function useSocket() {
       ref.current.setNotification({ type: 'eliminated', text: `⚰️ ${playerName} طُرد!` });
       setTimeout(() => ref.current.setNotification(null), 3000);
     });
-    on('uno-called',    ({ playerName }) => {
-      ref.current.setNotification({ type: 'uno',    text: `${playerName} — UNO!` });
+    on('uno-called', ({ playerName }) => {
+      ref.current.setNotification({ type: 'uno', text: `${playerName} — UNO!` });
       setTimeout(() => ref.current.setNotification(null), 2500);
     });
-    on('uno-caught',    ({ targetName }) => {
+    on('uno-caught', ({ targetName }) => {
       ref.current.setNotification({ type: 'caught', text: `امسكنا ${targetName}! +2` });
       setTimeout(() => ref.current.setNotification(null), 2500);
     });
@@ -65,11 +64,10 @@ export function useSocket() {
       }
     });
 
-    // Punishment
     on('punishment-updated', (data) => ref.current.setPunishment(data));
+
     on('wheel-result', (result) => {
       ref.current.setWheelResult(result);
-      ref.current.setShowWheel(true);
     });
 
     on('error', ({ message }) => {

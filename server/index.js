@@ -40,16 +40,15 @@ function emitGameOver(room, winner) {
   if (room.punishmentMode && loser) {
     room.currentSpinnerId = loser.id;
     room.currentSpinnerName = loser.name;
-    const idx = Math.floor(Math.random() * room.penalties.length);
-    room.currentPenalty = room.penalties[idx];
     room.lastWinner = winner;
     room.wheelRetryCount = 0;
+    room.wheelCumAngle = 0;
   }
 
   io.to(room.code).emit('game-over', {
     winner,
     loser,
-    punishment: room.punishmentMode ? room.currentPenalty : null,
+    punishmentMode: room.punishmentMode,
   });
 }
 
@@ -116,18 +115,10 @@ io.on('connection', socket => {
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
   });
 
-  socket.on('set-penalties', ({ penalties }) => {
+  socket.on('set-segments', ({ segments }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const r = room.setPenalties(socket.id, penalties);
-    if (r.error) return socket.emit('error', { message: r.error });
-    io.to(room.code).emit('punishment-updated', room.getPunishmentState());
-  });
-
-  socket.on('set-wheel-options', ({ options }) => {
-    const room = rooms.get(socket.data.roomCode);
-    if (!room) return;
-    const r = room.setWheelOptions(socket.id, options);
+    const r = room.setSegments(socket.id, segments);
     if (r.error) return socket.emit('error', { message: r.error });
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
   });
