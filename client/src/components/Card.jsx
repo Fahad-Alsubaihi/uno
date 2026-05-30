@@ -12,10 +12,15 @@ const WILD_GRADIENT =
   'conic-gradient(from 0deg, #DC2626 0deg 90deg, #2563EB 90deg 180deg, #16A34A 180deg 270deg, #D97706 270deg 360deg)';
 
 // أضفنا xs = 38px
-const CARD_W = { xs: 38, sm: 52, md: 72, lg: 90 };
-const CARD_H = { xs: 57, sm: 78, md: 108, lg: 135 };
-const ICON_S = { xs: 11, sm: 17, md: 24, lg: 32 };
-const NUM_S  = { xs: 14, sm: 20, md: 30, lg: 40 };
+// const CARD_W = { xs: 38, sm: 52, md: 72, lg: 90 };
+// const CARD_H = { xs: 57, sm: 78, md: 108, lg: 135 };
+// const ICON_S = { xs: 11, sm: 17, md: 24, lg: 32 };
+// const NUM_S  = { xs: 14, sm: 20, md: 30, lg: 40 };
+
+const CARD_W = { xs: 46, sm: 62, md: 80, lg: 90 };
+const CARD_H = { xs: 69, sm: 93, md: 120, lg: 135 };
+const ICON_S = { xs: 14, sm: 20, md: 26, lg: 32 };
+const NUM_S  = { xs: 18, sm: 25, md: 33, lg: 40 };
 
 /* ── SVG Icons ── */
 function SkipSVG({ s }) {

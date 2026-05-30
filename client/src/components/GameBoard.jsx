@@ -59,7 +59,7 @@ export function GameBoard({ gameState, isMyTurn, onDraw }) {
                 border: '1.5px solid rgba(167,139,250,0.2)', opacity: 0.55,
               }} />
             ))}
-            <Card card={{ id: 'deck', color: 'wild', type: 'wild', value: 'wild' }} faceDown size="sm" />
+            <Card card={{ id: 'deck', color: 'wild', type: 'wild', value: 'wild' }} faceDown size="md" />
           </motion.div>
           <span style={{ fontSize: 10, color: '#64748B' }}>{deckCount} متبقية</span>
           {isMyTurn && (
@@ -89,7 +89,7 @@ export function GameBoard({ gameState, isMyTurn, onDraw }) {
             <AnimatePresence mode="popLayout">
               {topCard && (
                 <Card
-                  key={topCard.id} card={topCard} size="sm" layoutId={topCard.id}
+                  key={topCard.id} card={topCard} size="md" layoutId={topCard.id}
                   initial={{ scale: 0.6, rotate: -15, opacity: 0 }}
                   animate={{ scale: 1, rotate: 0, opacity: 1 }}
                   exit={{ scale: 0.6, opacity: 0 }}

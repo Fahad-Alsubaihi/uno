@@ -78,6 +78,7 @@ io.on('connection', socket => {
     socket.data.roomCode = code;
     socket.emit('room-joined', { roomCode: code, playerId: socket.id });
     io.to(code).emit('room-updated', room.getState());
+    socket.emit('punishment-updated', room.getPunishmentState());
   });
 
   socket.on('join-room', ({ roomCode, playerName }) => {
@@ -91,6 +92,7 @@ io.on('connection', socket => {
     socket.data.roomCode = code;
     socket.emit('room-joined', { roomCode: code, playerId: socket.id });
     io.to(code).emit('room-updated', room.getState());
+    socket.emit('punishment-updated', room.getPunishmentState());
   });
 
   socket.on('start-game', () => {
