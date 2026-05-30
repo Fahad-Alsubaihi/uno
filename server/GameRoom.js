@@ -133,11 +133,11 @@ class GameRoom {
       for (let i = 0; i < 7; i++) player.hand.push(this.deck.pop());
     }
 
-    // First card: skip any wild type
+    // First card: must be a number card (skip all action cards per official rules)
     let startCard;
     do {
       startCard = this.deck.pop();
-      if (startCard.color === 'wild') {
+      if (startCard.type !== 'number') {
         this.deck.unshift(startCard);
         startCard = null;
       }
@@ -207,7 +207,7 @@ class GameRoom {
     const activeColor = this.currentColor || top?.color;
     if (!activeColor) return true;
     if (card.color === activeColor) return true;
-    if (card.type !== 'number' && top && card.type === top.type) return true;
+    if (card.type !== 'number' && top && top.color !== 'wild' && card.type === top.type) return true;
     if (card.type === 'number' && top?.type === 'number' && card.value === top.value) return true;
     return false;
   }
@@ -273,10 +273,9 @@ class GameRoom {
       if (this.punishmentMode && loser) {
         this.currentSpinnerId = loser.id;
         this.currentSpinnerName = loser.name;
-        const penaltyIdx = Math.floor(Math.random() * this.penalties.length);
-        this.currentPenalty = this.penalties[penaltyIdx];
         this.lastWinner = { id: player.id, name: player.name };
         this.wheelRetryCount = 0;
+        this.wheelCumAngle = 0;
       }
       return {
         card, gameOver: true,

@@ -60,11 +60,11 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
   function isPlayable(card) {
     if (!isMyTurn) return false;
     if (pendingDraw > 0) return (card.drawValue || 0) >= pendingDraw;
-    if (card.color === 'wild') return true;
+    if (card.color === 'wild') return pendingDraw === 0 || (card.drawValue || 0) >= pendingDraw;
     if (!topCard) return false;
     const activeColor = currentColor || topCard.color;
     if (card.color === activeColor) return true;
-    if (card.type !== 'number' && card.type === topCard.type) return true;
+    if (card.type !== 'number' && topCard.color !== 'wild' && card.type === topCard.type) return true;
     if (card.type === 'number' && topCard.type === 'number' && card.value === topCard.value) return true;
     return false;
   }
