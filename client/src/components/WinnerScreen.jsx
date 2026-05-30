@@ -103,7 +103,7 @@ export function WinnerScreen({ socket }) {
         wheelResult={wheelResult}
         loser={loser}
         playerId={playerId}
-        punishment={punishment}
+        segments={punishment?.segments || []}
         onSpin={() => game.spinWheel()}
         onClose={() => setShowWheel(false)}
       />
