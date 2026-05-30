@@ -609,7 +609,7 @@ class GameRoom {
 
   getPunishmentState() {
     return {
-      punishmentMode: this.punishmentMode,
+      enabled: this.punishmentMode,
       penalties: this.penalties,
       wheelOptions: this.wheelOptions,
       approvals: [...this.punishmentApprovals],

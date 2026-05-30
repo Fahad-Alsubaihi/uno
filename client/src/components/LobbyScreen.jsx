@@ -180,7 +180,7 @@ export function LobbyScreen({ socket }) {
           <motion.button
             whileHover={canStart && (!punishment.enabled || allApproved) ? { scale: 1.03, boxShadow: '0 0 28px rgba(244,63,94,0.7)' } : {}}
             whileTap={canStart && (!punishment.enabled || allApproved) ? { scale: 0.97 } : {}}
-            onClick={canStart ? game.startGame : undefined}
+            onClick={canStart && (!punishment.enabled || allApproved) ? game.startGame : undefined}
             style={{
               width: '100%', padding: '16px',
               background: (canStart && (!punishment.enabled || allApproved))
