@@ -562,7 +562,7 @@ class GameRoom {
 
   setSegments(playerId, segments) {
     if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
-    if (!Array.isArray(segments) || segments.length < 2) return { error: 'يجب أن يكون هناك قسمان على الأقل' };
+    if (!Array.isArray(segments) || segments.length < 1) return { error: 'يجب أن يكون هناك قسم واحد على الأقل' };
     this.segments = segments.slice(0, 20);
     return { ok: true };
   }
