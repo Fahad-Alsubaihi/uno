@@ -19,7 +19,7 @@ function calcLayout(count, winW) {
   if (count === 0) return { overlap: 0, rows: 1, cardW: CARD_W, cardH: CARD_H };
 
   // الفضاء المتاح بعد الهوامش
-  const avail = winW - H_PAD * 2;
+  const avail = winW - H_PAD * 2 - 8;
 
   // ─ جرب صف واحد ─
   if (CARD_W * count <= avail) {
@@ -145,8 +145,8 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'flex-end',
-        height: cardH + LIFT + 4,
-        paddingTop: LIFT + 4,
+        height: cardH + LIFT + 12,
+        paddingTop: LIFT + 8,
         position: 'relative',
         overflow: 'visible',
       }}>
@@ -297,7 +297,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
       flexDirection: 'column',
       width:         '100%',
       /* Safe Area — iPhone notch / home bar */
-      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
     }}>
 
       {/* ── UNO Button ── */}
@@ -373,6 +373,9 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
         borderRadius:     '20px 20px 16px 16px',
         boxShadow:        '0 -4px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
         overflow:         'visible',
+        minHeight:        rows === 2
+          ? (CARD_H + LIFT + ROW_GAP) * 2 + 60
+          : CARD_H + LIFT + 60,
         /* هامش داخلي يضمن عدم لمس الحواف */
         padding:          `6px ${H_PAD}px 10px`,
       }}>

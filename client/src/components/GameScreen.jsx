@@ -89,7 +89,7 @@ export function GameScreen({ socket }) {
       width: '100vw', height: '100dvh',
       background: 'var(--bg)',
       display: 'flex', flexDirection: 'column',
-      overflow: 'hidden', position: 'relative',
+      overflow: 'visible', position: 'relative',
       direction: 'rtl',
     }}>
       <ErrorToast message={error} />
