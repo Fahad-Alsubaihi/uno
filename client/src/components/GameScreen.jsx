@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { useSound } from '../hooks/useSound';
+
+// refs prepared for card-fly animation — attached to DOM in future steps
+export const deckRef    = createRef(); // deck pile in GameBoard
+export const discardRef = createRef(); // discard pile in GameBoard
+export const trayRef    = createRef(); // card tray in PlayerHand
 import { PlayerHand } from './PlayerHand';
 import { GameBoard } from './GameBoard';
 import { OpponentHand } from './OpponentHand';
