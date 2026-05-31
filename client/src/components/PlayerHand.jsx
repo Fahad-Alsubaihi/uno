@@ -6,7 +6,7 @@ import { Card } from './Card';
    Constants
 ───────────────────────────────────────────── */
 const LIFT  = 38;
-const H_PAD = 12;
+const H_PAD = 9;
 
 const GLOW = {
   red:    'rgba(220,38,38,0.7)',
@@ -205,7 +205,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
           overflow:             'visible',
           position:             'relative',
           // paddingTop reserves space so lifted cards don't get clipped
-          paddingTop:   LIFT + 6,
+          paddingTop:   16,
           paddingLeft:  H_PAD,
           paddingRight: H_PAD,
           paddingBottom: 0,
