@@ -5,7 +5,7 @@ import { Card } from './Card';
 /* ─────────────────────────────────────────────
    Constants
 ───────────────────────────────────────────── */
-const PEEK          = 28;   // how many px of each lower row peek below the row above
+const PEEK          = 46;   // how many px of each lower row peek below the row above
 const LIFT          = 38;   // how high a selected card rises
 const H_PAD         = 12;   // horizontal padding inside tray
 const CARDS_PER_ROW = 8;    // always 8 per row
@@ -226,7 +226,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
               rowIndex 0   (first) → top = (n-1)*PEEK  → bottom, only PEEK visible
             */
             const rowTop = (numRows - 1 - rowIndex) * PEEK;
-            const rowZ   = rowIndex + 1; // higher rowIndex = higher z = visually on top
+            const rowZ   = rowIndex - rowIndex; // higher rowIndex = higher z = visually on top
 
             return (
               <div
@@ -281,6 +281,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                         touchAction: 'manipulation',
                         width:       cardW,
                         height:      cardH,
+                        marginLeft:  i === 0 ? 0 : -(cardW * 0.5),
                       }}
                       onClick={() => handleTap(globalIdx, card, jumpable)}
                     >
