@@ -194,10 +194,12 @@ function Center({ card, size }) {
 /* ── Card ── */
 export function Card({
   card, onClick, isPlayable = false, isSelected = false,
-  size = 'md', faceDown = false, layoutId, animate, initial, exit,
+  size = 'md', customW, customH,
+  faceDown = false, layoutId, animate, initial, exit,
 }) {
-  const w = CARD_W[size] || 72;
-  const h = CARD_H[size] || 108;
+  const w = customW || CARD_W[size] || 72;
+  const h = customH || CARD_H[size] || 108;
+  const dynamicSize = w < 50 ? 'xs' : w < 65 ? 'sm' : w < 85 ? 'md' : 'lg';
   const scheme = SCHEME[card?.color] || SCHEME.wild;
   const isWild = card?.color === 'wild';
 
@@ -295,13 +297,13 @@ export function Card({
           transform: 'rotate(18deg)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Center card={card} size={size} />
+          <Center card={card} size={dynamicSize} />
         </div>
       </div>
 
       {/* Corners */}
-      <Corner card={card} flip={false} size={size} />
-      <Corner card={card} flip={true}  size={size} />
+      <Corner card={card} flip={false} size={dynamicSize} />
+      <Corner card={card} flip={true}  size={dynamicSize} />
 
       {/* Chosen color dot for wild */}
       {isWild && card.chosenColor && (

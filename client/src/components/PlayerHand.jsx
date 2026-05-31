@@ -323,17 +323,15 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                         />
                       )}
 
-                      {/* ── Card — scaled to fit cardW×cardH ── */}
-                      <div style={{
-                        position:        'absolute',
-                        top:             0,
-                        left:            0,
-                        transformOrigin: 'top left',
-                        transform:       `scale(${cardScale})`,
-                        zIndex:          1,
-                        pointerEvents:   'none',
-                      }}>
-                        <Card card={card} isPlayable={active} size="sm" onClick={() => {}} />
+                      {/* ── Card — native size via customW/customH ── */}
+                      <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}>
+                        <Card
+                          card={card}
+                          isPlayable={active}
+                          customW={cardW}
+                          customH={cardH}
+                          onClick={() => {}}
+                        />
                       </div>
 
                       {/* ── Dim overlay ── */}
