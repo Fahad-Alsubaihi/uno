@@ -323,16 +323,18 @@ class GameRoom {
         this._advanceTurn(1);
         break;
 
-      case 'wild-reverse-draw-four':
-        this.direction *= -1;
-        if (this.players.length === 2) {
-          this._drawCards(player, 4);
-          this._checkMercyRule(player);
-          this._advanceTurn(1);
-        } else {
-          this._advanceTurn(1);
-        }
-        break;
+    case 'wild-reverse-draw-four':
+      this.direction *= -1;
+      if (this.players.length === 2) {
+        this.pendingDraw = 0;
+        this.lastDrawValue = 0;
+        this._drawCards(player, 4);
+        this._checkMercyRule(player);
+        this._advanceTurn(1);
+      } else {
+        this._advanceTurn(1);
+      }
+      break;
 
       case 'discard-all': {
         const col = card.color;
