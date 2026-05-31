@@ -15,6 +15,7 @@ import { ColorPicker } from './ColorPicker';
 import { SevenSwapModal } from './SevenSwapModal';
 import { ErrorToast } from './ErrorToast';
 import { Notification } from './Notification';
+import { CardGuide } from './CardGuide';
 
 const COLOR_META = {
   red:    { hex: '#DC2626', glow: '#EF4444', label: 'أحمر' },
@@ -32,6 +33,7 @@ export function GameScreen({ socket }) {
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [pendingCardIndex, setPendingCardIndex] = useState(null);
   const [swapOpen, setSwapOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     if (gameState?.pendingSevenSwap && gameState?.pendingSevenPlayerId === playerId) {
@@ -102,6 +104,7 @@ export function GameScreen({ socket }) {
       <ColorPicker open={colorPickerOpen} onPick={handleColorPick} />
       <ColorPicker open={rouletteNeedPick} onPick={handleRoulettePick} title="روليت الألوان — اختر لون" />
       <SevenSwapModal open={swapOpen} players={players} myId={playerId} onSwap={handleSwap} />
+      <CardGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
 
       {/* ── HUD HEADER ── */}
       <div style={{
@@ -115,6 +118,26 @@ export function GameScreen({ socket }) {
         <div style={{ fontFamily: 'var(--font-head)', fontSize: 13, color: '#F43F5E', letterSpacing: 2, flexShrink: 0 }}>
           UNO<span style={{ color: '#7C3AED' }}>·NM</span>
         </div>
+
+        {/* Card guide button */}
+        <motion.button
+          whileHover={{ scale: 1.12, boxShadow: '0 0 12px rgba(124,58,237,0.5)' }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setGuideOpen(true)}
+          aria-label="دليل الأوراق"
+          style={{
+            width: 26, height: 26, borderRadius: '50%',
+            background: 'rgba(124,58,237,0.15)',
+            border: '1px solid rgba(124,58,237,0.4)',
+            color: '#A78BFA',
+            fontFamily: 'var(--font-head)', fontSize: 13,
+            cursor: 'pointer', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            lineHeight: 1,
+          }}
+        >
+          ?
+        </motion.button>
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
