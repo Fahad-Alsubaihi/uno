@@ -89,11 +89,12 @@ export function LobbyScreen({ socket }) {
   function handleApprove()    { game.approvePunishment(); }
 
   return (
+    <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)', direction: 'rtl' }}>
     <div style={{
-      minHeight: '100vh', background: 'var(--bg)',
+      minHeight: '100%',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      padding: 24, direction: 'rtl',
+      padding: 24,
     }}>
       <PunishmentSetup
         open={setupOpen} onClose={() => setSetupOpen(false)}
@@ -446,6 +447,7 @@ export function LobbyScreen({ socket }) {
           مغادرة الغرفة
         </motion.button>
       </motion.div>
+    </div>
     </div>
   );
 }
