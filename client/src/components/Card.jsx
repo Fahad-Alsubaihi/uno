@@ -209,14 +209,14 @@ export function Card({
           width: w, height: h, borderRadius: 8,
           background: 'linear-gradient(135deg,#1E1B4B,#7C3AED 50%,#1E1B4B)',
           border: '2px solid rgba(167,139,250,0.25)',
-          boxShadow: '0 3px 10px rgba(0,0,0,0.5)',
+          boxShadow: '0 3px 12px rgba(0,0,0,0.55)',
           flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
         <span style={{
           fontFamily: 'var(--font-head)',
           fontSize: Math.max(8, w * 0.22),
-          color: 'rgba(167,139,250,0.4)',
+          color: 'rgba(167,139,250,0.38)',
         }}>UNO</span>
       </motion.div>
     );
@@ -232,12 +232,12 @@ export function Card({
         width: w, height: h, borderRadius: 8,
         background: isWild ? WILD_GRADIENT : scheme.bg,
         border: isSelected
-          ? '2px solid #fff'
+          ? '2.5px solid #fff'
           : isPlayable
             ? `2px solid ${scheme.glow}`
             : '2px solid rgba(255,255,255,0.12)',
         boxShadow: isPlayable
-          ? `0 0 16px ${scheme.glow}55, 0 4px 16px rgba(0,0,0,0.5)`
+          ? `0 0 18px ${scheme.glow}60, 0 6px 18px rgba(0,0,0,0.5)`
           : '0 2px 8px rgba(0,0,0,0.45)',
         cursor: isPlayable ? 'pointer' : 'default',
         flexShrink: 0, position: 'relative',
@@ -245,17 +245,48 @@ export function Card({
         userSelect: 'none', overflow: 'hidden',
       }}
     >
+      {/* Playable pulsing glow ring */}
+      {isPlayable && !isSelected && (
+        <motion.div
+          animate={{
+            boxShadow: [
+              `inset 0 0 10px ${scheme.glow}30`,
+              `inset 0 0 22px ${scheme.glow}55`,
+              `inset 0 0 10px ${scheme.glow}30`,
+            ],
+          }}
+          transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
+          style={{
+            position: 'absolute', inset: 0, borderRadius: 7,
+            pointerEvents: 'none', zIndex: 0,
+          }}
+        />
+      )}
+
       {/* Shine */}
       <div style={{
         position: 'absolute', inset: 0,
-        background: 'linear-gradient(140deg,rgba(255,255,255,0.14) 0%,transparent 55%)',
+        background: 'linear-gradient(140deg,rgba(255,255,255,0.16) 0%,transparent 52%)',
         pointerEvents: 'none',
       }} />
+
+      {/* Wild rainbow shimmer overlay */}
+      {isWild && (
+        <motion.div
+          animate={{ opacity: [0, 0.15, 0], x: ['-100%', '100%'] }}
+          transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut', repeatDelay: 1 }}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.5) 50%, transparent 70%)',
+            pointerEvents: 'none', zIndex: 2,
+          }}
+        />
+      )}
 
       {/* Oval */}
       <div style={{
         width: w * 0.6, height: h * 0.6, borderRadius: '50%',
-        background: isWild ? 'rgba(0,0,0,0.45)' : scheme.dark,
+        background: isWild ? 'rgba(0,0,0,0.48)' : scheme.dark,
         transform: 'rotate(-18deg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative', zIndex: 1,
@@ -272,7 +303,7 @@ export function Card({
       <Corner card={card} flip={false} size={size} />
       <Corner card={card} flip={true}  size={size} />
 
-      {/* نقطة اللون المختار للـ wild */}
+      {/* Chosen color dot for wild */}
       {isWild && card.chosenColor && (
         <div style={{
           position: 'absolute', bottom: 3, left: '50%',
@@ -281,7 +312,9 @@ export function Card({
           height: size === 'xs' ? 6 : 8,
           borderRadius: '50%',
           background: SCHEME[card.chosenColor]?.bg || '#fff',
-          border: '1px solid rgba(255,255,255,0.4)', zIndex: 2,
+          border: '1px solid rgba(255,255,255,0.4)',
+          boxShadow: `0 0 6px ${SCHEME[card.chosenColor]?.glow || '#fff'}`,
+          zIndex: 3,
         }} />
       )}
     </motion.div>
