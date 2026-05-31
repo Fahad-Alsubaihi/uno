@@ -2,37 +2,42 @@ const { v4: uuidv4 } = require('uuid');
 
 const COLORS = ['red', 'green', 'blue', 'yellow'];
 
+/* ──────────────────────────────────────────────────────────────
+   المشكلة 1 و 2: إنشاء الدكة الرسمية لـ No Mercy (168 ورقة بالضبط)
+────────────────────────────────────────────────────────────── */
 function createDeck() {
   const deck = [];
+  
+  // 1. الأوراق الملونة: 4 ألوان × 29 ورقة لكل لون = 116 ورقة
   for (const color of COLORS) {
+    // الرقم 0 (نسخة واحدة لكل لون)
     deck.push({ id: uuidv4(), color, type: 'number', value: 0 });
+    
+    // الأرقام من 1 إلى 9 (نسختين لكل رقم لكل لون)
     for (let n = 1; n <= 9; n++) {
       deck.push({ id: uuidv4(), color, type: 'number', value: n });
       deck.push({ id: uuidv4(), color, type: 'number', value: n });
     }
+    
+    // أوراق الأكشن الملونة (نسختين من كل نوع لكل لون)
+    // [تم تنظيف ومنع سحب كروت draw-six و draw-ten الملونة غير الموجودة بالنسخة الرسمية]
     for (let i = 0; i < 2; i++) {
       deck.push({ id: uuidv4(), color, type: 'skip', value: 'skip' });
       deck.push({ id: uuidv4(), color, type: 'reverse', value: 'reverse' });
       deck.push({ id: uuidv4(), color, type: 'draw-two', value: '+2', drawValue: 2 });
+      deck.push({ id: uuidv4(), color, type: 'skip-all', value: 'skip-all' });
+      deck.push({ id: uuidv4(), color, type: 'discard-all', value: 'discard-all' });
     }
-    // No Mercy special colored cards
-    deck.push({ id: uuidv4(), color, type: 'draw-six',   value: '+6',        drawValue: 6 });
-    deck.push({ id: uuidv4(), color, type: 'draw-ten',   value: '+10',       drawValue: 10 });
-    deck.push({ id: uuidv4(), color, type: 'skip-all',   value: 'skip-all' });
-    deck.push({ id: uuidv4(), color, type: 'discard-all',value: 'discard-all' });
   }
-  // Standard wilds x4
+
+  // No Mercy wilds x4 each = 16 wild cards
   for (let i = 0; i < 4; i++) {
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild',           value: 'wild' });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-four', value: '+4', drawValue: 4 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-six',          value: '+6',    drawValue: 6 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-ten',          value: '+10',   drawValue: 10 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-reverse-draw-four', value: 'عكس+4', drawValue: 4 });
+    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-color-roulette',    value: 'روليت' });
   }
-  // No Mercy special wilds x2
-  for (let i = 0; i < 2; i++) {
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-six',         value: '+6',     drawValue: 6 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-ten',         value: '+10',    drawValue: 10 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-reverse-draw-four',value: 'عكس+4', drawValue: 4 });
-    deck.push({ id: uuidv4(), color: 'wild', type: 'wild-color-roulette',   value: 'روليت' });
-  }
+
   return deck;
 }
 
@@ -54,7 +59,7 @@ let _sid = 1;
 function sid() { return String(_sid++); }
 
 const DEFAULT_SEGMENTS = [
-  { id: sid(), type: 'punishment', text: 'اشرب كوب ماء كامل',               size: 3, color: '#EF4444' },
+  { id: sid(), type: 'punishment', text: 'اشرب كوب ماء كامل',          size: 3, color: '#EF4444' },
   { id: sid(), type: 'punishment', text: 'قلد صوت حيوان 10 ثواني',           size: 2, color: '#F97316' },
   { id: sid(), type: 'luck',       text: 'retry',                            size: 2, color: '#7C3AED' },
   { id: sid(), type: 'punishment', text: 'افعل 10 ضغط',                     size: 3, color: '#EC4899' },
@@ -75,12 +80,17 @@ class GameRoom {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
+    
+    // إصلاح المشكلة 3: تتبع قيمة ورقة السحب الأخيرة لضمان مطابقة التراكم الرياضي التصاعدي
+    this.lastDrawValue = 0; 
+
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
     this.pendingColorRoulettePlayerId = null;
     this.rouletteChosenColor = null;
     this.currentColor = null;
+    
     // Punishment mode
     this.punishmentMode = false;
     this.segments = DEFAULT_SEGMENTS.map(s => ({ ...s }));
@@ -111,7 +121,6 @@ class GameRoom {
   }
 
   startGame() {
-    // Check all approved if punishment mode is on
     if (this.punishmentMode) {
       const notApproved = this.players.filter(p => !this.punishmentApprovals.has(p.id));
       if (notApproved.length > 0) return { error: `${notApproved[0].name} لم يوافق بعد` };
@@ -123,6 +132,7 @@ class GameRoom {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
+    this.lastDrawValue = 0; // تصفير عند البداية
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
@@ -134,7 +144,7 @@ class GameRoom {
       for (let i = 0; i < 7; i++) player.hand.push(this.deck.pop());
     }
 
-    // First card: must be a number card (skip all action cards per official rules)
+    // أول كارت: يجب أن يكون رقم عادي وليس أكشن أو برية معقدة لضمان استقرار البداية
     let startCard;
     do {
       startCard = this.deck.pop();
@@ -172,7 +182,6 @@ class GameRoom {
     }
   }
 
-  // Returns true if the player was eliminated (mercy rule)
   _checkMercyRule(player) {
     if (player.hand.length >= MERCY_LIMIT) {
       this._eliminatePlayer(player.id);
@@ -188,22 +197,24 @@ class GameRoom {
     this.deck.push(...this.players[idx].hand);
     this.deck = shuffle(this.deck);
     this.players.splice(idx, 1);
-    // Adjust currentPlayerIndex
     if (idx < this.currentPlayerIndex) this.currentPlayerIndex--;
     if (this.players.length > 0) {
       this.currentPlayerIndex = this.currentPlayerIndex % this.players.length;
     }
   }
 
-  // Stacking rule: card.drawValue >= current pendingDraw total
+  /* ──────────────────────────────────────────────────────────────
+     المشكلة 3: فحص التراكم واللعب بطرق التكديس المتصاعدة الرسمية
+  ────────────────────────────────────────────────────────────── */
   _isPlayable(card) {
     const top = this.discardPile[this.discardPile.length - 1];
 
+    // في حال وجود كروت متراكمة بالساحة: يُسمح فقط بلعب كارت سحب مساوي أو أعلى من كارت السحب الأخير
     if (this.pendingDraw > 0) {
-      return (card.drawValue || 0) >= this.pendingDraw;
+      return (card.drawValue || 0) >= this.lastDrawValue;
     }
 
-    if (card.color === 'wild') return true;
+    if (this._isWildCard(card.type)) return true;
 
     const activeColor = this.currentColor || top?.color;
     if (!activeColor) return true;
@@ -236,8 +247,8 @@ class GameRoom {
   }
 
   _isWildCard(type) {
-    return ['wild','wild-draw-four','wild-draw-six','wild-draw-ten',
-            'wild-reverse-draw-four','wild-color-roulette'].includes(type);
+    return ['wild-draw-six', 'wild-draw-ten',
+            'wild-reverse-draw-four', 'wild-color-roulette'].includes(type);
   }
 
   playCard(playerId, cardIndex, chosenColor = null) {
@@ -265,7 +276,13 @@ class GameRoom {
 
     this.discardPile.push(card);
 
-    // Win check
+    // تحديث قيم التراكم المضافة إذا كان للكارت تأثير سحب متراكم
+    if (card.drawValue > 0) {
+      this.lastDrawValue = card.drawValue;
+      this.pendingDraw += card.drawValue;
+    }
+
+    // فحص الفوز الفوري
     if (player.hand.length === 0) {
       this.gameStarted = false;
       const loser = this.players
@@ -286,14 +303,13 @@ class GameRoom {
       };
     }
 
-    // Apply card effects
+    // معالجة حركات الأكشن الرسمية
     switch (card.type) {
       case 'skip':
         this._advanceTurn(2);
         break;
 
       case 'skip-all':
-        // Everyone loses their turn, current player goes again — no advance
         break;
 
       case 'reverse':
@@ -302,22 +318,23 @@ class GameRoom {
         break;
 
       case 'draw-two':
-        this.pendingDraw += 2;
+      case 'wild-draw-six':
+      case 'wild-draw-ten':
         this._advanceTurn(1);
         break;
 
-      case 'draw-six':
-        this.pendingDraw += 6;
-        this._advanceTurn(1);
-        break;
-
-      case 'draw-ten':
-        this.pendingDraw += 10;
-        this._advanceTurn(1);
+      case 'wild-reverse-draw-four':
+        this.direction *= -1;
+        if (this.players.length === 2) {
+          this._drawCards(player, 4);
+          this._checkMercyRule(player);
+          this._advanceTurn(1);
+        } else {
+          this._advanceTurn(1);
+        }
         break;
 
       case 'discard-all': {
-        // Discard all remaining cards of same color from hand
         const col = card.color;
         player.hand = player.hand.filter(c => c.color !== col);
         if (player.hand.length === 0) {
@@ -328,40 +345,7 @@ class GameRoom {
         break;
       }
 
-      case 'wild':
-        this._advanceTurn(1);
-        break;
-
-      case 'wild-draw-four':
-        this.pendingDraw += 4;
-        this._advanceTurn(1);
-        break;
-
-      case 'wild-draw-six':
-        this.pendingDraw += 6;
-        this._advanceTurn(1);
-        break;
-
-      case 'wild-draw-ten':
-        this.pendingDraw += 10;
-        this._advanceTurn(1);
-        break;
-
-      case 'wild-reverse-draw-four':
-        this.direction *= -1;
-        if (this.players.length === 2) {
-          // In 2-player: the player who played draws 4
-          this._drawCards(player, 4);
-          this._checkMercyRule(player);
-          this._advanceTurn(1);
-        } else {
-          this.pendingDraw += 4;
-          this._advanceTurn(1);
-        }
-        break;
-
       case 'wild-color-roulette':
-        // Advance to next player — they pick color and draw
         this._advanceTurn(1);
         this.pendingColorRoulette = true;
         this.pendingColorRoulettePlayerId = this.players[this.currentPlayerIndex]?.id;
@@ -371,7 +355,6 @@ class GameRoom {
         if (card.value === 7) {
           this.pendingSevenSwap = true;
           this.pendingSevenPlayerId = playerId;
-          // No advance — wait for swap
         } else if (card.value === 0) {
           this._rotateHands();
           this._advanceTurn(1);
@@ -388,7 +371,9 @@ class GameRoom {
     return { card };
   }
 
-  // Draw until you get a playable card (or stack penalty)
+  /* ──────────────────────────────────────────────────────────────
+     المشكلة 3: التصفير الكامل لعدادات التراكم عند تفعيل عقوبة السحب
+  ────────────────────────────────────────────────────────────── */
   drawCard(playerId) {
     const pIdx = this.players.findIndex(p => p.id === playerId);
     if (pIdx === -1)                   return { error: 'لاعب غير موجود' };
@@ -396,17 +381,22 @@ class GameRoom {
 
     const player = this.players[pIdx];
 
-    // Accept stack penalty
+    // في حال تنفيذ عقوبة التراكم
     if (this.pendingDraw > 0) {
       const count = this.pendingDraw;
-      this.pendingDraw = 0;
+      
       this._drawCards(player, count);
+      
+      // تصفير العدادات كلياً بعد ابتلاع العقوبة
+      this.pendingDraw = 0;
+      this.lastDrawValue = 0; 
+      
       const eliminated = this._checkMercyRule(player);
       if (!eliminated) this._advanceTurn(1);
       return { drew: count, eliminated };
     }
 
-    // Draw until playable card found
+    // السحب العادي (ورقة واحدة فقط عند عدم وجود تراكم)
     let drew = 0;
     let drawnCard;
     do {
@@ -441,23 +431,20 @@ class GameRoom {
     return { swapped: true };
   }
 
-  // اللاعب التالي يختار اللون — يُحفظ ويبدأ السحب ورقة ورقة
   colorRoulettePick(playerId, chosenColor) {
     if (!this.pendingColorRoulette)                    return { error: 'لا يوجد روليت معلق' };
     if (playerId !== this.pendingColorRoulettePlayerId) return { error: 'ليس روليتك' };
     if (!COLORS.includes(chosenColor))                  return { error: 'لون غير صالح' };
 
-    // حفظ اللون — الآن اللاعب يضغط الدكة ورقة ورقة
     this.rouletteChosenColor = chosenColor;
     this.currentColor = chosenColor;
     return { colorChosen: true, chosenColor };
   }
 
-  // كل ضغطة على الدكة أثناء الروليت = ورقة وحدة
   rouletteDraw(playerId) {
     if (!this.pendingColorRoulette)                    return { error: 'لا يوجد روليت معلق' };
     if (playerId !== this.pendingColorRoulettePlayerId) return { error: 'ليس روليتك' };
-    if (!this.rouletteChosenColor)                     return { error: 'اختر اللون أولاً' };
+    if (!this.rouletteChosenColor)                      return { error: 'اختر اللون أولاً' };
 
     const player = this.players.find(p => p.id === playerId);
     if (!player) return { error: 'لاعب غير موجود' };
@@ -471,7 +458,6 @@ class GameRoom {
     const found = drawnCard.color === this.rouletteChosenColor;
 
     if (found) {
-      // وجد اللون — ينتهي الروليت
       this.pendingColorRoulette = false;
       this.pendingColorRoulettePlayerId = null;
       this.rouletteChosenColor = null;
@@ -480,7 +466,6 @@ class GameRoom {
       return { drew: 1, card: drawnCard, found: true, eliminated };
     }
 
-    // لم يجد — يكمل السحب
     const eliminated = this._checkMercyRule(player);
     if (eliminated) {
       this.pendingColorRoulette = false;
@@ -502,7 +487,7 @@ class GameRoom {
 
   catchUno(callerId, targetId) {
     const target = this.players.find(p => p.id === targetId);
-    if (!target)                                    return { error: 'لاعب غير موجود' };
+    if (!target)                                        return { error: 'لاعب غير موجود' };
     if (target.hand.length !== 1 || target.unoCalled) return { error: 'لا يمكن مسكه' };
     this._drawCards(target, 2);
     return { caught: true, targetName: target.name };
@@ -533,6 +518,11 @@ class GameRoom {
     this.discardPile.push(card);
     this.currentPlayerIndex = pIdx;
 
+    if (card.drawValue > 0) {
+      this.lastDrawValue = card.drawValue;
+      this.pendingDraw += card.drawValue;
+    }
+
     if (player.hand.length === 0) {
       this.gameStarted = false;
       return { card, gameOver: true, winner: { id: player.id, name: player.name } };
@@ -540,21 +530,14 @@ class GameRoom {
 
     switch (card.type) {
       case 'skip':     this._advanceTurn(2); break;
-      case 'skip-all': break; // go again
+      case 'skip-all': break; 
       case 'reverse':
         this.direction *= -1;
         this._advanceTurn(this.players.length === 2 ? 2 : 1);
         break;
       case 'draw-two':
-        this.pendingDraw += 2;
-        this._advanceTurn(1);
-        break;
-      case 'draw-six':
-        this.pendingDraw += 6;
-        this._advanceTurn(1);
-        break;
-      case 'draw-ten':
-        this.pendingDraw += 10;
+      case 'wild-draw-six':
+      case 'wild-draw-ten':
         this._advanceTurn(1);
         break;
       case 'discard-all': {
@@ -603,7 +586,6 @@ class GameRoom {
     const segs = this.segments;
     const totalSize = segs.reduce((s, g) => s + g.size, 0);
 
-    // Weighted random pick
     let rand = Math.random() * totalSize;
     let chosen = segs[segs.length - 1];
     let cumAngle = 0;
@@ -622,25 +604,21 @@ class GameRoom {
       cumAngle += span;
     }
 
-    // Pick random angle inside chosen segment, compute total wheel rotation
     const landAngle = chosenStart + Math.random() * chosenSpan;
     const baseStop = (360 - (landAngle % 360) + 360) % 360;
     this.wheelCumAngle += 5 * 360 + baseStop;
     const stopAngle = this.wheelCumAngle;
 
-    // Handle luck segments
     if (chosen.type === 'luck') {
       if (chosen.text === 'retry') {
         this.wheelRetryCount = (this.wheelRetryCount || 0) + 1;
         if (this.wheelRetryCount >= 3) {
-          // Force a random punishment
           const punishments = segs.filter(s => s.type === 'punishment');
           const forced = punishments[Math.floor(Math.random() * punishments.length)];
           this.wheelRetryCount = 0;
           this.currentSpinnerId = null;
           return { type: 'execute', segment: forced, stopAngle, forced: true, loserName: this.currentSpinnerName };
         }
-        // Allow retry — spinner stays
         return { type: 'retry', segment: chosen, stopAngle, retryCount: this.wheelRetryCount, loserName: this.currentSpinnerName };
       }
       if (chosen.text === 'reverse') {
@@ -656,7 +634,6 @@ class GameRoom {
       }
     }
 
-    // Regular punishment
     this.wheelRetryCount = 0;
     this.currentSpinnerId = null;
     return { type: 'execute', segment: chosen, stopAngle, loserName: this.currentSpinnerName };
@@ -693,6 +670,7 @@ class GameRoom {
       currentPlayerId: this.players[this.currentPlayerIndex]?.id,
       direction: this.direction,
       pendingDraw: this.pendingDraw,
+      lastDrawValue: this.lastDrawValue, // مضاف للـ State الخارجي للمزامنة
       pendingSevenSwap: this.pendingSevenSwap,
       pendingSevenPlayerId: this.pendingSevenPlayerId,
       pendingColorRoulette: this.pendingColorRoulette,
