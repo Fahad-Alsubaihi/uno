@@ -27,7 +27,7 @@ const COLOR_META = {
 
 export function GameScreen({ socket }) {
   const { gameState, playerId, error, notification } = useGameStore();
-  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick } = useGame(socket);
+  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw } = useGame(socket);
   const sound = useSound();
 
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -87,7 +87,10 @@ export function GameScreen({ socket }) {
   }
 
   function handleRoulettePick(color) { sound.swap(); colorRoulettePick(color); }
-  function handleDraw() { sound.drawCard(); drawCard(); }
+  function handleDraw() {
+    sound.drawCard();
+    if (rouletteDrawing) { rouletteDraw(); } else { drawCard(); }
+  }
   function handleUno() { sound.uno(); callUno(); }
   function handleSwap(targetId) { setSwapOpen(false); sound.swap(); sevenSwap(targetId); }
 
@@ -216,7 +219,7 @@ export function GameScreen({ socket }) {
 
       {/* ── BOARD ── */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-        <GameBoard gameState={gameState} isMyTurn={isMyTurn && !isMyRoulette} onDraw={handleDraw} />
+        <GameBoard gameState={gameState} isMyTurn={(isMyTurn && !isMyRoulette) || rouletteDrawing} onDraw={handleDraw} />
       </div>
 
       {/* ── MY NAME ── */}

@@ -219,7 +219,16 @@ io.on('connection', socket => {
     if (!room) return;
     const result = room.colorRoulettePick(socket.id, chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
-    io.to(room.code).emit('roulette-resolved', { drew: result.drew });
+    // just save the chosen color and broadcast — drawing happens card-by-card via roulette-draw
+    broadcastGameState(room);
+  });
+
+  socket.on('roulette-draw', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.rouletteDraw(socket.id);
+    if (result.error) return socket.emit('error', { message: result.error });
+    if (result.found) io.to(room.code).emit('roulette-resolved', { drew: 1 });
     if (!handleElimination(room, result)) broadcastGameState(room);
   });
 
