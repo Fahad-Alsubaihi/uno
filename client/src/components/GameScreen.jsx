@@ -70,6 +70,11 @@ export function GameScreen({ socket }) {
 
   function handlePlay(cardIndex, card, isJumpIn) {
     if (isJumpIn) { sound.jumpIn(); jumpIn(cardIndex); return; }
+    if (card.type === 'wild-color-roulette') {
+      sound.playCard();
+      playCard(cardIndex, null);
+      return;
+    }
     if (card.color === 'wild') {
       setPendingCardIndex(cardIndex);
       setColorPickerOpen(true);

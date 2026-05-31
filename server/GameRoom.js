@@ -268,8 +268,11 @@ class GameRoom {
     player.unoCalled = false;
 
     if (this._isWildCard(card.type)) {
-      card.chosenColor = COLORS.includes(chosenColor) ? chosenColor : 'red';
-      this.currentColor = card.chosenColor;
+      if (card.type !== 'wild-color-roulette') {
+        card.chosenColor = COLORS.includes(chosenColor) ? chosenColor : 'red';
+        this.currentColor = card.chosenColor;
+      }
+      // wild-color-roulette: currentColor stays unchanged until next player picks via colorRoulettePick
     } else {
       this.currentColor = card.color;
     }
