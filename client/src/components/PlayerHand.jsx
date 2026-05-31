@@ -141,15 +141,16 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
   ───────────────────────────────────────── */
   function renderRow(cards, startIdx) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-end',
-        height: cardH + LIFT + 12,
-        paddingTop: LIFT + 8,
-        position: 'relative',
-        overflow: 'visible',
-      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-end',
+          height: cardH + LIFT + 12,
+          paddingTop: LIFT + 8,
+          position: 'relative',
+          overflowX: 'hidden',  // يمنع الخروج يمين ويسار
+          overflowY: 'visible', // يسمح للأوراق ترتفع فوق
+        }}>
         {cards.map((card, i) => {
           const gIdx     = startIdx + i;
           const playable = isPlayable(card);
@@ -364,21 +365,21 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
       </div>
 
       {/* ── Card Tray ── */}
-      <div style={{
-        margin:           '0 8px 4px',
-        background:       'rgba(15,10,40,0.55)',
-        backdropFilter:   'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
-        border:           '1px solid rgba(255,255,255,0.08)',
-        borderRadius:     '20px 20px 16px 16px',
-        boxShadow:        '0 -4px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
-        overflow:         'visible',
-        minHeight:        rows === 2
-          ? (CARD_H + LIFT + ROW_GAP) * 2 + 60
-          : CARD_H + LIFT + 60,
-        /* هامش داخلي يضمن عدم لمس الحواف */
-        padding:          `6px ${H_PAD}px 10px`,
-      }}>
+        <div style={{
+          margin: '0 8px 4px',
+          background: 'rgba(15,10,40,0.55)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '20px 20px 16px 16px',
+          boxShadow: '0 -4px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
+          padding: `6px ${H_PAD}px 10px`,
+          // احذف minHeight كلياً
+          // بدل overflow: visible استخدم clip-path يخفي يمين ويسار وتحت بس
+          clipPath: 'inset(0 0 0 0 round 20px 20px 16px 16px)',
+          overflowX: 'hidden',
+          overflowY: 'visible',
+        }}>
 
         {/* rows */}
         <AnimatePresence>

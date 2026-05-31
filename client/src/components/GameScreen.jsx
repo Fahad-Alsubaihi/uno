@@ -215,9 +215,13 @@ export function GameScreen({ socket }) {
       {/* ── HAND ── */}
       <div style={{
         flexShrink: 0,
+        position: 'relative',
+        zIndex: 10,
+        overflowX: 'hidden',  // يمنع الخروج يمين ويسار
+        overflowY: 'visible', // يسمح للأوراق ترتفع
         background: 'rgba(0,0,0,0.5)',
         borderTop: '1px solid rgba(255,255,255,0.07)',
-        paddingBottom: 'env(safe-area-inset-bottom, 6px)',
+        paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
       }}>
         <PlayerHand
           hand={myHand}
