@@ -5,11 +5,8 @@ import { Card } from './Card';
 /* ─────────────────────────────────────────────
    Constants
 ───────────────────────────────────────────── */
-const PEEK          = 46;   // how many px of each lower row peek below the row above
-const LIFT          = 38;   // how high a selected card rises
-const H_PAD         = 12;   // horizontal padding inside tray
-const CARDS_PER_ROW = 8;    // always 8 per row
-const SM_W          = 62;   // Card size="sm" native width  (used for scale calc)
+const LIFT  = 38;
+const H_PAD = 12;
 
 const GLOW = {
   red:    'rgba(220,38,38,0.7)',
@@ -22,17 +19,21 @@ const GLOW = {
 /* ─────────────────────────────────────────────
    Helpers
 ───────────────────────────────────────────── */
-function buildRows(hand) {
+function buildRows(hand, perRow) {
   const rows = [];
-  for (let i = 0; i < hand.length; i += CARDS_PER_ROW) {
-    rows.push(hand.slice(i, i + CARDS_PER_ROW));
-  }
+  for (let i = 0; i < hand.length; i += perRow)
+    rows.push(hand.slice(i, i + perRow));
   return rows;
 }
 
-function calcCardW(winW) {
-  const avail = winW - H_PAD * 2;
-  return Math.max(36, Math.floor(avail / CARDS_PER_ROW));
+function calcLayout(winW) {
+  const availW  = winW - H_PAD * 2;
+  const targetW = winW < 480 ? 58 : winW < 768 ? 64 : winW < 1024 ? 72 : 80;
+  const perRow  = Math.max(3, Math.floor(availW / targetW));
+  const cardW   = Math.floor(availW / perRow);
+  const cardH   = Math.round(cardW * 1.5);
+  const peek    = Math.round(cardH * 0.25);
+  return { cardW, cardH, perRow, peek };
 }
 
 /* ─────────────────────────────────────────────
@@ -71,13 +72,9 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     console.log('trayRef ready:', trayRef.current);
   }, []);
 
-  /* ── card dimensions ── */
-  const cardW     = useMemo(() => calcCardW(winW), [winW]);
-  const cardH     = useMemo(() => Math.round(cardW * 1.5), [cardW]);
-  const cardScale = useMemo(() => cardW / SM_W, [cardW]);
-
-  /* ── row layout ── */
-  const rows    = useMemo(() => buildRows(hand), [hand]);
+  /* ── card dimensions & layout ── */
+  const { cardW, cardH, perRow, peek } = useMemo(() => calcLayout(winW), [winW]);
+  const rows    = useMemo(() => buildRows(hand, perRow), [hand, perRow]);
   const numRows = rows.length || 1;
 
   /*
@@ -217,7 +214,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
         {/* ── Rows container ── */}
         <div style={{
           position: 'relative',
-          height:   cardH + (numRows - 1) * PEEK,
+          height:   cardH + (numRows - 1) * peek,
           overflow: 'visible',
         }}>
           {rows.map((rowCards, rowIndex) => {
@@ -225,8 +222,8 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
               rowIndex n-1 (last)  → top = 0           → top of tray, fully visible
               rowIndex 0   (first) → top = (n-1)*PEEK  → bottom, only PEEK visible
             */
-            const rowTop = (rowIndex) * PEEK;
-            const rowZ   = rowIndex - rowIndex; // higher rowIndex = higher z = visually on top
+            const rowTop = rowIndex * peek;
+            const rowZ   = numRows - rowIndex;
 
             return (
               <div
@@ -244,7 +241,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                 }}
               >
                 {rowCards.map((card, i) => {
-                  const globalIdx = rowIndex * CARDS_PER_ROW + i;
+                  const globalIdx = rowIndex * perRow + i;
                   const playable  = isPlayable(card);
                   const jumpable  = isJumpable(card);
                   const active    = playable || jumpable;
