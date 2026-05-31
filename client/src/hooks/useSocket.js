@@ -22,19 +22,35 @@ export function useSocket() {
       ref.current.setPlayerId(playerId);
       ref.current.setScreen('lobby');
     });
-    on('room-updated', (s) => ref.current.setRoomPlayers(s.players));
+    on('room-updated', (s) => {
+      ref.current.setRoomPlayers(s.players);
+      if (s.totalRounds !== undefined) ref.current.setTotalRounds(s.totalRounds);
+    });
     on('game-started', () => ref.current.setScreen('game'));
     on('game-state',   (s) => ref.current.setGameState(s));
 
-    on('game-over', ({ winner, loser, punishmentMode }) => {
+    on('game-over', ({ winner, loser, punishmentMode, scores }) => {
       ref.current.setWinner(winner);
       ref.current.setLoser(loser || null);
+      if (scores) ref.current.setFinalScores(scores);
       const s = ref.current;
       if ((punishmentMode || s.punishment?.enabled) && loser) {
-        ref.current.setShowWheel(false);   // reset so useEffect in WinnerScreen opens it
+        ref.current.setShowWheel(false);
         ref.current.setWheelResult(null);
       }
       ref.current.setScreen('winner');
+    });
+
+    on('round-over', (data) => {
+      ref.current.setRoundResult(data);
+    });
+
+    on('round-started', () => {
+      ref.current.setRoundResult(null);
+    });
+
+    on('rounds-updated', ({ totalRounds }) => {
+      ref.current.setTotalRounds(totalRounds);
     });
 
     on('player-eliminated', ({ playerName }) => {
@@ -78,7 +94,8 @@ export function useSocket() {
     return () => {
       ['room-joined','room-updated','game-started','game-state','game-over',
        'player-eliminated','uno-called','uno-caught','seven-swapped',
-       'roulette-resolved','card-played','punishment-updated','wheel-result','error',
+       'roulette-resolved','card-played','punishment-updated','wheel-result',
+       'round-over','round-started','rounds-updated','error',
       ].forEach(ev => socket.off(ev));
     };
   }, []);

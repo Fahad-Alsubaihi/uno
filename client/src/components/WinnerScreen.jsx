@@ -78,7 +78,7 @@ function FireworkBurst({ cx, cy, delay }) {
 }
 
 export function WinnerScreen({ socket }) {
-  const { winner, loser, playerId, reset, punishment, showWheel, wheelResult, setShowWheel } = useGameStore();
+  const { winner, loser, playerId, reset, punishment, showWheel, wheelResult, setShowWheel, finalScores, roomPlayers } = useGameStore();
   const game = useGame(socket);
   const sound = useSound();
   const isWinner = winner?.id === playerId;
@@ -198,6 +198,48 @@ export function WinnerScreen({ socket }) {
             >
               جاري فتح عجلة العقوبات…
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* Final scores */}
+        {finalScores && roomPlayers.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            style={{
+              background: 'rgba(0,0,0,0.35)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 14, overflow: 'hidden',
+              marginBottom: 20, width: '100%', maxWidth: 320,
+            }}
+          >
+            <div style={{
+              padding: '8px 16px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              fontFamily: 'var(--font-head)', fontSize: 10,
+              color: '#475569', letterSpacing: 2, textAlign: 'center',
+            }}>
+              النتيجة النهائية
+            </div>
+            {[...roomPlayers]
+              .map(p => ({ ...p, score: finalScores[p.id] || 0 }))
+              .sort((a, b) => b.score - a.score)
+              .map((p, i) => (
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 16px',
+                  background: p.id === playerId ? 'rgba(124,58,237,0.12)' : 'transparent',
+                  borderBottom: i < roomPlayers.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12 }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
+                    <span style={{ fontFamily: 'var(--font-head)', fontSize: 13, color: '#E2E8F0' }}>{p.name}</span>
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-head)', fontSize: 16, color: '#22C55E' }}>{p.score}</span>
+                </div>
+              ))
+            }
           </motion.div>
         )}
 

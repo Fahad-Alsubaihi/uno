@@ -140,17 +140,46 @@ io.on('connection', socket => {
     io.to(room.code).emit('wheel-result', result);
   });
 
+  socket.on('set-rounds', ({ rounds }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.setRounds(socket.id, rounds);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('rounds-updated', {
+      totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
+    });
+    io.to(room.code).emit('room-updated', room.getState());
+  });
+
+  socket.on('start-next-round', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.startNextRound(socket.id);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('round-started', { currentRound: room.currentRound });
+    broadcastGameState(room);
+  });
+
   socket.on('play-card', ({ cardIndex, chosenColor }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
     const result = room.playCard(socket.id, cardIndex, chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
     io.to(room.code).emit('card-played', { playerId: socket.id, card: result.card });
-    if (result.gameOver) {
+    if (result.roundOver) {
+      io.to(room.code).emit('round-over', {
+        roundWinner:  result.roundWinner,
+        scores:       result.scores,
+        currentRound: result.currentRound,
+        totalRounds:  result.totalRounds,
+      });
+      broadcastGameState(room);
+    } else if (result.gameOver) {
       io.to(room.code).emit('game-over', {
-        winner: result.winner,
-        loser: result.loser,
-        punishment: result.punishment,
+        winner:         result.winner,
+        loser:          result.loser,
+        punishmentMode: room.punishmentMode,
+        scores:         result.scores,
       });
     } else {
       broadcastGameState(room);

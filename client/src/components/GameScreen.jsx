@@ -16,6 +16,7 @@ import { SevenSwapModal } from './SevenSwapModal';
 import { ErrorToast } from './ErrorToast';
 import { Notification } from './Notification';
 import { CardGuide } from './CardGuide';
+import { RoundOverModal } from './RoundOverModal';
 
 const COLOR_META = {
   red:    { hex: '#DC2626', glow: '#EF4444', label: 'أحمر' },
@@ -26,8 +27,8 @@ const COLOR_META = {
 };
 
 export function GameScreen({ socket }) {
-  const { gameState, playerId, error, notification } = useGameStore();
-  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw } = useGame(socket);
+  const { gameState, playerId, error, notification, roundResult, roomPlayers, setRoundResult } = useGameStore();
+  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound } = useGame(socket);
   const sound = useSound();
 
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -113,6 +114,13 @@ export function GameScreen({ socket }) {
       <ColorPicker open={rouletteNeedPick} onPick={handleRoulettePick} title="روليت الألوان — اختر لون" />
       <SevenSwapModal open={swapOpen} players={players} myId={playerId} onSwap={handleSwap} />
       <CardGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <RoundOverModal
+        result={roundResult}
+        roomPlayers={roomPlayers}
+        playerId={playerId}
+        isHost={roomPlayers[0]?.id === playerId}
+        onNextRound={() => { startNextRound(); setRoundResult(null); }}
+      />
 
       {/* ── HUD HEADER ── */}
       <div style={{

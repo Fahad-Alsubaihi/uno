@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from './store/gameStore';
 import { useSocket } from './hooks/useSocket';
@@ -11,8 +12,14 @@ const SCREENS = { home: HomeScreen, lobby: LobbyScreen, game: GameScreen, winner
 
 export default function App() {
   const socket = useSocket();
-  const { screen, error } = useGameStore();
+  const { screen, error, setAutoJoinRoom } = useGameStore();
   const Screen = SCREENS[screen] || HomeScreen;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    if (room) setAutoJoinRoom(room.toUpperCase());
+  }, []);
 
   return (
     <>

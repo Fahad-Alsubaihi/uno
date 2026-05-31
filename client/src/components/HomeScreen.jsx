@@ -65,9 +65,10 @@ function MiniCard({ color, dark, value, left, top, rotate, dur }) {
 
 export function HomeScreen({ socket }) {
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [tab, setTab] = useState('create');
   const [rulesOpen, setRulesOpen] = useState(false);
+  const autoJoinRoom = useGameStore(s => s.autoJoinRoom);
+  const [code, setCode] = useState(autoJoinRoom || '');
+  const [tab, setTab] = useState(autoJoinRoom ? 'join' : 'create');
   const setPlayerName = useGameStore(s => s.setPlayerName);
   const { createRoom, joinRoom } = useGame(socket);
 

@@ -46,7 +46,7 @@ function WaitingDots() {
 }
 
 export function LobbyScreen({ socket }) {
-  const { roomCode, roomPlayers, playerId, reset, punishment, setPunishment } = useGameStore();
+  const { roomCode, roomPlayers, playerId, reset, punishment, setPunishment, totalRounds } = useGameStore();
   const game = useGame(socket);
   const [setupOpen, setSetupOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -79,7 +79,8 @@ export function LobbyScreen({ socket }) {
     : true;
 
   function copyCode() {
-    navigator.clipboard?.writeText(roomCode).catch(() => {});
+    const url = `${window.location.origin}?room=${roomCode}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -130,14 +131,15 @@ export function LobbyScreen({ socket }) {
         }}>
           <div>
             <div style={{ fontSize: 10, color: '#475569', fontFamily: 'var(--font-head)', letterSpacing: 2, marginBottom: 4 }}>
-              رمز الغرفة
+              شارك الرابط
             </div>
             <div style={{
-              fontFamily: 'var(--font-head)', fontSize: 34,
-              color: '#E2E8F0', letterSpacing: 10,
-              textShadow: '0 0 20px rgba(124,58,237,0.4)',
+              fontFamily: 'var(--font-head)', fontSize: 14,
+              color: '#E2E8F0', letterSpacing: 1,
+              textShadow: '0 0 16px rgba(124,58,237,0.4)',
+              wordBreak: 'break-all',
             }}>
-              {roomCode}
+              {window.location.host}?room={roomCode}
             </div>
           </div>
           <motion.button
@@ -260,6 +262,38 @@ export function LobbyScreen({ socket }) {
               </span>
             </div>
           ))}
+        </div>
+
+        {/* Rounds selector */}
+        <div style={{
+          background: 'rgba(0,0,0,0.25)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 14, padding: '14px 16px', marginBottom: 16,
+        }}>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 13, color: '#E2E8F0', letterSpacing: 1, marginBottom: 10 }}>
+            عدد الجولات
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            {[1, 3, 5, 7, '∞'].map(n => (
+              <motion.button
+                key={n}
+                whileHover={isHost ? { scale: 1.05 } : {}}
+                whileTap={isHost ? { scale: 0.95 } : {}}
+                onClick={() => isHost && game.setRounds(n)}
+                style={{
+                  background: totalRounds === n ? '#7C3AED' : 'rgba(255,255,255,0.08)',
+                  border: `1px solid ${totalRounds === n ? '#7C3AED' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 8, padding: '8px 14px',
+                  color: '#fff', cursor: isHost ? 'pointer' : 'default',
+                  fontFamily: 'var(--font-head)', fontSize: 14,
+                  boxShadow: totalRounds === n ? '0 0 12px rgba(124,58,237,0.4)' : 'none',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {n}
+              </motion.button>
+            ))}
+          </div>
         </div>
 
         {/* Punishment toggle */}

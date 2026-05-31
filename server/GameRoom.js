@@ -100,6 +100,10 @@ class GameRoom {
     this.currentSpinnerId = null;
     this.currentSpinnerName = null;
     this.lastWinner = null;
+    this.totalRounds = 3;
+    this.currentRound = 1;
+    this.scores = {};
+    this.waitingForNextRound = false;
   }
 
   addPlayer(id, name) {
@@ -132,7 +136,10 @@ class GameRoom {
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
-    this.lastDrawValue = 0; // تصفير عند البداية
+    this.lastDrawValue = 0;
+    this.currentRound = 1;
+    this.scores = {};
+    this.waitingForNextRound = false;
     this.pendingSevenSwap = false;
     this.pendingSevenPlayerId = null;
     this.pendingColorRoulette = false;
@@ -252,6 +259,7 @@ class GameRoom {
   }
 
   playCard(playerId, cardIndex, chosenColor = null) {
+    if (this.waitingForNextRound) return { error: 'في انتظار بدء الجولة التالية' };
     if (this.pendingSevenSwap)    return { error: 'أكمل تبادل السبعة أولاً' };
     if (this.pendingColorRoulette) return { error: 'أكمل روليت الألوان أولاً' };
 
@@ -285,25 +293,9 @@ class GameRoom {
       this.pendingDraw += card.drawValue;
     }
 
-    // فحص الفوز الفوري
     if (player.hand.length === 0) {
-      this.gameStarted = false;
-      const loser = this.players
-        .filter(p => p.id !== player.id)
-        .sort((a, b) => b.hand.length - a.hand.length)[0];
-      if (this.punishmentMode && loser) {
-        this.currentSpinnerId = loser.id;
-        this.currentSpinnerName = loser.name;
-        this.lastWinner = { id: player.id, name: player.name };
-        this.wheelRetryCount = 0;
-        this.wheelCumAngle = 0;
-      }
-      return {
-        card, gameOver: true,
-        winner: { id: player.id, name: player.name },
-        loser: loser ? { id: loser.id, name: loser.name } : null,
-        punishment: this.punishmentMode ? this.currentPenalty : null,
-      };
+      const winResult = this._handleWin(player);
+      return { card, ...winResult };
     }
 
     // معالجة حركات الأكشن الرسمية
@@ -343,8 +335,8 @@ class GameRoom {
         const col = card.color;
         player.hand = player.hand.filter(c => c.color !== col);
         if (player.hand.length === 0) {
-          this.gameStarted = false;
-          return { card, gameOver: true, winner: { id: player.id, name: player.name } };
+          const winResult = this._handleWin(player);
+          return { card, ...winResult };
         }
         this._advanceTurn(1);
         break;
@@ -549,8 +541,8 @@ class GameRoom {
         const col = card.color;
         player.hand = player.hand.filter(c => c.color !== col);
         if (player.hand.length === 0) {
-          this.gameStarted = false;
-          return { card, gameOver: true, winner: { id: player.id, name: player.name } };
+          const winResult = this._handleWin(player);
+          return { card, ...winResult };
         }
         this._advanceTurn(1);
         break;
@@ -660,6 +652,7 @@ class GameRoom {
         id: p.id, name: p.name, cardCount: p.hand.length, unoCalled: p.unoCalled,
       })),
       gameStarted: this.gameStarted,
+      totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
     };
   }
 
@@ -682,7 +675,113 @@ class GameRoom {
       pendingColorRoulettePlayerId: this.pendingColorRoulettePlayerId,
       rouletteChosenColor: this.rouletteChosenColor,
       deckCount: this.deck.length,
+      currentRound: this.currentRound,
+      totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
+      scores: this.scores,
+      waitingForNextRound: this.waitingForNextRound,
     };
+  }
+
+  setRounds(playerId, rounds) {
+    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+    this.totalRounds = rounds === '∞' ? Infinity : Number(rounds);
+    return { ok: true };
+  }
+
+  _calcRoundScore(hand) {
+    return hand.reduce((sum, card) => {
+      if (card.type === 'number') return sum + Number(card.value);
+      if (card.color === 'wild')  return sum + 50;
+      return sum + 20;
+    }, 0);
+  }
+
+  _handleWin(player) {
+    const winner = { id: player.id, name: player.name };
+    const loser = this.players
+      .filter(p => p.id !== player.id)
+      .sort((a, b) => b.hand.length - a.hand.length)[0];
+
+    for (const p of this.players) {
+      if (p.id === winner.id) continue;
+      this.scores[winner.id] = (this.scores[winner.id] || 0) + this._calcRoundScore(p.hand);
+    }
+    for (const e of this.eliminatedPlayers) {
+      this.scores[winner.id] = (this.scores[winner.id] || 0) + 250;
+    }
+
+    if (this.currentRound < this.totalRounds) {
+      this.waitingForNextRound = true;
+      return {
+        roundOver: true,
+        roundWinner: winner,
+        scores: { ...this.scores },
+        currentRound: this.currentRound,
+        totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
+      };
+    } else {
+      this.gameStarted = false;
+      if (this.punishmentMode && loser) {
+        this.currentSpinnerId = loser.id;
+        this.currentSpinnerName = loser.name;
+        this.lastWinner = winner;
+        this.wheelRetryCount = 0;
+        this.wheelCumAngle = 0;
+      }
+      return {
+        gameOver: true, finalRound: true,
+        winner,
+        loser: loser ? { id: loser.id, name: loser.name } : null,
+        scores: { ...this.scores },
+      };
+    }
+  }
+
+  _startNewRound() {
+    for (const ep of this.eliminatedPlayers) {
+      if (!this.players.find(p => p.id === ep.id)) {
+        this.players.push({ id: ep.id, name: ep.name, hand: [], unoCalled: false });
+      }
+    }
+    this.eliminatedPlayers = [];
+    this.deck = shuffle(createDeck());
+    this.discardPile = [];
+    this.currentPlayerIndex = 0;
+    this.direction = 1;
+    this.pendingDraw = 0;
+    this.lastDrawValue = 0;
+    this.pendingSevenSwap = false;
+    this.pendingSevenPlayerId = null;
+    this.pendingColorRoulette = false;
+    this.pendingColorRoulettePlayerId = null;
+    this.rouletteChosenColor = null;
+
+    for (const player of this.players) {
+      player.hand = [];
+      player.unoCalled = false;
+      for (let i = 0; i < 7; i++) player.hand.push(this.deck.pop());
+    }
+
+    let startCard;
+    do {
+      startCard = this.deck.pop();
+      if (startCard.type !== 'number') {
+        this.deck.unshift(startCard);
+        startCard = null;
+      }
+    } while (!startCard);
+
+    this.discardPile.push(startCard);
+    this.currentColor = startCard.color;
+  }
+
+  startNextRound(playerId) {
+    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+    if (!this.waitingForNextRound) return { error: 'لا يوجد جولة معلقة' };
+    this.currentRound++;
+    this.waitingForNextRound = false;
+    this._startNewRound();
+    return { ok: true };
   }
 }
 
