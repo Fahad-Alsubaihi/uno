@@ -135,21 +135,16 @@ function Corner({ card, flip, size }) {
     ...(flip ? { bottom: 2, left: 3 } : { top: 2, right: 3 }),
   };
   switch (card.type) {
-    case 'number':               return <div style={style}>{card.value}</div>;
+    case 'number':                  return <div style={style}>{card.value}</div>;
     case 'skip':
-    case 'skip-all':             return <div style={style}><SkipSVG s={s} /></div>;
-    case 'reverse':              return <div style={style}><ReverseSVG s={s} /></div>;
-    case 'draw-two':             return <div style={style}>+2</div>;
-    case 'draw-four':            return <div style={style}>+4</div>;
-    case 'draw-six':             return <div style={style}>+6</div>;
-    case 'draw-ten':             return <div style={style}>+10</div>;
-    case 'discard-all':          return <div style={style}><DiscardAllSVG s={s} /></div>;
-    case 'wild':                 return <div style={style}>W</div>;
-    case 'wild-draw-four':       return <div style={style}>+4</div>;
-    case 'wild-draw-six':        return <div style={style}>+6</div>;
-    case 'wild-draw-ten':        return <div style={style}>+10</div>;
-    case 'wild-reverse-draw-four': return <div style={style}><ReverseSVG s={s} /></div>;
-    case 'wild-color-roulette':  return <div style={style}>?</div>;
+    case 'skip-all':                return <div style={style}><SkipSVG s={s} /></div>;
+    case 'reverse':                 return <div style={style}><ReverseSVG s={s} /></div>;
+    case 'draw-two':                return <div style={style}>+2</div>;
+    case 'discard-all':             return <div style={style}><DiscardAllSVG s={s} /></div>;
+    case 'wild-draw-six':           return <div style={style}>+6</div>;
+    case 'wild-draw-ten':           return <div style={style}>+10</div>;
+    case 'wild-reverse-draw-four':  return <div style={style}><ReverseSVG s={s} /></div>;
+    case 'wild-color-roulette':     return <div style={style}>?</div>;
     default: return null;
   }
 }
@@ -167,26 +162,15 @@ function Center({ card, size }) {
           textShadow: '0 2px 6px rgba(0,0,0,0.4)',
         }}>{card.value}</span>
       );
-    case 'skip':           return <SkipSVG s={s} />;
-    case 'skip-all':       return <SkipAllSVG s={s} />;
-    case 'reverse':        return <ReverseSVG s={s} />;
-    case 'draw-two':       return <DrawSVG s={s} label="+2" />;
-    case 'draw-four':      return <DrawSVG s={s} label="+4" />;
-    case 'draw-six':       return <DrawSVG s={s} label="+6" />;
-    case 'draw-ten':       return <DrawSVG s={s} label="+10" />;
-    case 'discard-all':    return <DiscardAllSVG s={s} />;
-    case 'wild':
-      return (
-        <span style={{
-          fontFamily: 'var(--font-head)', fontSize: ns,
-          color: '#fff', lineHeight: 1,
-        }}>W</span>
-      );
-    case 'wild-draw-four': return <DrawSVG s={s} label="+4" />;
-    case 'wild-draw-six':  return <DrawSVG s={s} label="+6" />;
-    case 'wild-draw-ten':  return <DrawSVG s={s} label="+10" />;
-    case 'wild-reverse-draw-four': return <WildRevSVG s={s} />;
-    case 'wild-color-roulette':    return <RouletteSVG s={s} />;
+    case 'skip':                    return <SkipSVG s={s} />;
+    case 'skip-all':                return <SkipAllSVG s={s} />;
+    case 'reverse':                 return <ReverseSVG s={s} />;
+    case 'draw-two':                return <DrawSVG s={s} label="+2" />;
+    case 'discard-all':             return <DiscardAllSVG s={s} />;
+    case 'wild-draw-six':           return <DrawSVG s={s} label="+6" />;
+    case 'wild-draw-ten':           return <DrawSVG s={s} label="+10" />;
+    case 'wild-reverse-draw-four':  return <WildRevSVG s={s} />;
+    case 'wild-color-roulette':     return <RouletteSVG s={s} />;
     default: return null;
   }
 }
