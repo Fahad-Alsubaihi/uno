@@ -222,7 +222,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
               rowIndex n-1 (last)  → top = 0           → top of tray, fully visible
               rowIndex 0   (first) → top = (n-1)*PEEK  → bottom, only PEEK visible
             */
-            const rowTop = rowIndex * peek;
+            const rowTop = (numRows - 1 - rowIndex) * peek;
             const rowZ   = numRows - rowIndex;
 
             return (
