@@ -63,12 +63,11 @@ function MiniCard({ color, dark, value, left, top, rotate, dur }) {
   );
 }
 
-export function HomeScreen({ socket }) {
+export function HomeScreen({ socket, pendingRoom }) {
   const [name, setName] = useState('');
   const [rulesOpen, setRulesOpen] = useState(false);
-  const autoJoinRoom = useGameStore(s => s.autoJoinRoom);
-  const [code, setCode] = useState(autoJoinRoom || '');
-  const [tab, setTab] = useState(autoJoinRoom ? 'join' : 'create');
+  const [code, setCode] = useState(pendingRoom || '');
+  const [tab, setTab] = useState(pendingRoom ? 'join' : 'create');
   const setPlayerName = useGameStore(s => s.setPlayerName);
   const { createRoom, joinRoom } = useGame(socket);
 
@@ -83,9 +82,14 @@ export function HomeScreen({ socket }) {
   function handleJoin(e) {
     e.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed || !code.trim()) return;
+    if (!trimmed) return;
     setPlayerName(trimmed);
-    joinRoom(code.trim().toUpperCase(), trimmed);
+    if (pendingRoom) {
+      joinRoom(pendingRoom, trimmed);
+    } else {
+      if (!code.trim()) return;
+      joinRoom(code.trim().toUpperCase(), trimmed);
+    }
   }
 
   return (
@@ -233,6 +237,18 @@ export function HomeScreen({ socket }) {
 
         <form onSubmit={tab === 'create' ? handleCreate : handleJoin}
           style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+          {pendingRoom && tab === 'join' && (
+            <div style={{
+              background: 'rgba(124,58,237,0.15)',
+              border: '1px solid rgba(124,58,237,0.35)',
+              borderRadius: 10, padding: '10px 16px',
+              color: '#A78BFA', fontSize: 13, textAlign: 'center',
+            }}>
+              ستنضم للغرفة: <strong>{pendingRoom}</strong>
+            </div>
+          )}
+
           <div>
             <label style={{
               display: 'block', fontSize: 11, color: '#7C3AED',
@@ -262,7 +278,7 @@ export function HomeScreen({ socket }) {
           </div>
 
           <AnimatePresence>
-            {tab === 'join' && (
+            {tab === 'join' && !pendingRoom && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}

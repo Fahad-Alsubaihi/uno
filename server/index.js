@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { createClient } = require('redis');
 const GameRoom = require('./GameRoom');
 
 const app = express();
@@ -15,6 +16,35 @@ const io = new Server(server, {
 });
 
 const rooms = new Map();
+
+// Redis
+const redis = createClient({ url: 'redis://redis:6379' });
+redis.connect().catch(console.error);
+
+const TTL = 86400; // 24 hours
+
+async function saveRoom(code, room) {
+  await redis.setEx(`room:${code}`, TTL, JSON.stringify({
+    code,
+    segments: room.segments,
+    totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
+    punishmentMode: room.punishmentMode,
+    createdAt: Date.now(),
+  }));
+}
+
+async function loadRoom(code) {
+  const data = await redis.get(`room:${code}`);
+  return data ? JSON.parse(data) : null;
+}
+
+async function refreshRoom(code) {
+  await redis.expire(`room:${code}`, TTL);
+}
+
+async function deleteRoom(code) {
+  await redis.del(`room:${code}`);
+}
 
 function roomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -33,7 +63,6 @@ function broadcastGameState(room) {
 }
 
 function emitGameOver(room, winner) {
-  // Pick loser = eliminated player with most cards (last eliminated), or any non-winner
   const loserRecord = room.eliminatedPlayers[room.eliminatedPlayers.length - 1] || null;
   const loser = loserRecord ? { id: loserRecord.id, name: loserRecord.name } : null;
 
@@ -69,11 +98,14 @@ function handleElimination(room, result) {
 io.on('connection', socket => {
   console.log('connected:', socket.id);
 
-  socket.on('create-room', ({ playerName }) => {
+  socket.on('create-room', async ({ playerName }) => {
     const code = roomCode();
     const room = new GameRoom(code);
     rooms.set(code, room);
     room.addPlayer(socket.id, playerName);
+
+    await saveRoom(code, room);
+
     socket.join(code);
     socket.data.roomCode = code;
     socket.emit('room-joined', { roomCode: code, playerId: socket.id });
@@ -81,12 +113,27 @@ io.on('connection', socket => {
     socket.emit('punishment-updated', room.getPunishmentState());
   });
 
-  socket.on('join-room', ({ roomCode, playerName }) => {
-    const code = (roomCode || '').toUpperCase().trim();
+  socket.on('join-room', async ({ roomCode: roomCodeParam, playerName }) => {
+    const code = (roomCodeParam || '').toUpperCase().trim();
+
+    if (!rooms.has(code)) {
+      const saved = await loadRoom(code);
+      if (saved) {
+        const room = new GameRoom(code);
+        room.segments = saved.segments;
+        room.totalRounds = saved.totalRounds === '∞' ? Infinity : Number(saved.totalRounds);
+        room.punishmentMode = saved.punishmentMode;
+        rooms.set(code, room);
+      }
+    }
+
     const room = rooms.get(code);
-    if (!room) return socket.emit('error', { message: 'الغرفة غير موجودة' });
+    if (!room) return socket.emit('error', { message: 'الغرفة غير موجودة أو انتهت صلاحيتها' });
     if (room.gameStarted) return socket.emit('error', { message: 'اللعبة بدأت بالفعل' });
     if (room.players.length >= 4) return socket.emit('error', { message: 'الغرفة ممتلئة (4 لاعبين)' });
+
+    await refreshRoom(code);
+
     room.addPlayer(socket.id, playerName);
     socket.join(code);
     socket.data.roomCode = code;
@@ -109,20 +156,22 @@ io.on('connection', socket => {
   });
 
   // ── Punishment events ──
-  socket.on('set-punishment-mode', ({ enabled }) => {
+  socket.on('set-punishment-mode', async ({ enabled }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
     const r = room.setPunishmentMode(socket.id, enabled);
     if (r.error) return socket.emit('error', { message: r.error });
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
+    await saveRoom(room.code, room);
   });
 
-  socket.on('set-segments', ({ segments }) => {
+  socket.on('set-segments', async ({ segments }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
     const r = room.setSegments(socket.id, segments);
     if (r.error) return socket.emit('error', { message: r.error });
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
+    await saveRoom(room.code, room);
   });
 
   socket.on('approve-punishment', () => {
@@ -140,7 +189,7 @@ io.on('connection', socket => {
     io.to(room.code).emit('wheel-result', result);
   });
 
-  socket.on('set-rounds', ({ rounds }) => {
+  socket.on('set-rounds', async ({ rounds }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
     const result = room.setRounds(socket.id, rounds);
@@ -149,6 +198,7 @@ io.on('connection', socket => {
       totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
     });
     io.to(room.code).emit('room-updated', room.getState());
+    await saveRoom(room.code, room);
   });
 
   socket.on('start-next-round', () => {
@@ -248,7 +298,6 @@ io.on('connection', socket => {
     if (!room) return;
     const result = room.colorRoulettePick(socket.id, chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
-    // just save the chosen color and broadcast — drawing happens card-by-card via roulette-draw
     broadcastGameState(room);
   });
 
@@ -261,12 +310,13 @@ io.on('connection', socket => {
     if (!handleElimination(room, result)) broadcastGameState(room);
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
     if (!room) return;
     room.removePlayer(socket.id);
     if (room.players.length === 0) {
+      await deleteRoom(code);
       rooms.delete(code);
     } else {
       io.to(code).emit('room-updated', room.getState());

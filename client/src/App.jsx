@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from './store/gameStore';
 import { useSocket } from './hooks/useSocket';
@@ -12,14 +12,19 @@ const SCREENS = { home: HomeScreen, lobby: LobbyScreen, game: GameScreen, winner
 
 export default function App() {
   const socket = useSocket();
-  const { screen, error, setAutoJoinRoom } = useGameStore();
+  const { screen, error } = useGameStore();
   const Screen = SCREENS[screen] || HomeScreen;
 
-  useEffect(() => {
+  // Read ?room= param synchronously on first render so HomeScreen gets it immediately
+  const [pendingRoom] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
-    if (room) setAutoJoinRoom(room.toUpperCase());
-  }, []);
+    if (room) {
+      window.history.replaceState({}, '', window.location.pathname);
+      return room.toUpperCase();
+    }
+    return null;
+  });
 
   return (
     <>
@@ -31,7 +36,7 @@ export default function App() {
           transition={{ duration: 0.2 }}
           style={{ width: '100%', height: '100%' }}
         >
-          <Screen socket={socket} />
+          <Screen socket={socket} pendingRoom={pendingRoom} />
         </motion.div>
       </AnimatePresence>
     </>
