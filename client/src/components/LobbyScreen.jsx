@@ -277,17 +277,24 @@ export function LobbyScreen({ socket }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <motion.button
-              whileHover={isHost && totalRounds !== '∞' && totalRounds > 1 ? { scale: 1.1 } : {}}
-              whileTap={isHost && totalRounds !== '∞' && totalRounds > 1 ? { scale: 0.9 } : {}}
-              onClick={() => isHost && totalRounds !== '∞' && totalRounds > 1 && game.setRounds(totalRounds - 1)}
+              whileHover={isHost ? { scale: 1.1 } : {}}
+              whileTap={isHost ? { scale: 0.9 } : {}}
+              onClick={() => {
+                if (!isHost) return;
+                if (totalRounds === '∞' || totalRounds === Infinity) {
+                  game.setRounds(5);
+                } else if (totalRounds > 1) {
+                  game.setRounds(totalRounds - 1);
+                }
+              }}
               style={{
                 width: 32, height: 32, borderRadius: '50%',
                 background: 'rgba(255,255,255,0.08)',
                 border: '1px solid rgba(255,255,255,0.15)',
                 color: '#fff', fontSize: 20,
-                cursor: isHost && totalRounds !== '∞' && totalRounds > 1 ? 'pointer' : 'default',
+                cursor: isHost ? 'pointer' : 'default',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                opacity: (!isHost || totalRounds === 1 || totalRounds === '∞') ? 0.3 : 1,
+                opacity: (!isHost || totalRounds === 1) ? 0.3 : 1,
               }}
             >−</motion.button>
 
