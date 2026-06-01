@@ -23,27 +23,22 @@ redis.connect().catch(console.error);
 
 const TTL = 86400; // 24 hours
 
-async function saveRoom(code, room) {
-  await redis.setEx(`room:${code}`, TTL, JSON.stringify({
-    code,
+async function saveRoomSettings(room) {
+  await redis.setEx(`room:${room.code}`, TTL, JSON.stringify({
+    code: room.code,
     segments: room.segments,
     totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
     punishmentMode: room.punishmentMode,
-    createdAt: Date.now(),
   }));
 }
 
-async function loadRoom(code) {
+async function loadRoomSettings(code) {
   const data = await redis.get(`room:${code}`);
   return data ? JSON.parse(data) : null;
 }
 
 async function refreshRoom(code) {
   await redis.expire(`room:${code}`, TTL);
-}
-
-async function deleteRoom(code) {
-  await redis.del(`room:${code}`);
 }
 
 function roomCode() {
@@ -104,7 +99,7 @@ io.on('connection', socket => {
     rooms.set(code, room);
     room.addPlayer(socket.id, playerName);
 
-    await saveRoom(code, room);
+    await saveRoomSettings(room);
 
     socket.join(code);
     socket.data.roomCode = code;
@@ -117,7 +112,7 @@ io.on('connection', socket => {
     const code = (roomCodeParam || '').toUpperCase().trim();
 
     if (!rooms.has(code)) {
-      const saved = await loadRoom(code);
+      const saved = await loadRoomSettings(code);
       if (saved) {
         const room = new GameRoom(code);
         room.segments = saved.segments;
@@ -162,7 +157,7 @@ io.on('connection', socket => {
     const r = room.setPunishmentMode(socket.id, enabled);
     if (r.error) return socket.emit('error', { message: r.error });
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
-    await saveRoom(room.code, room);
+    await saveRoomSettings(room);
   });
 
   socket.on('set-segments', async ({ segments }) => {
@@ -171,7 +166,7 @@ io.on('connection', socket => {
     const r = room.setSegments(socket.id, segments);
     if (r.error) return socket.emit('error', { message: r.error });
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
-    await saveRoom(room.code, room);
+    await saveRoomSettings(room);
   });
 
   socket.on('approve-punishment', () => {
@@ -198,7 +193,7 @@ io.on('connection', socket => {
       totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
     });
     io.to(room.code).emit('room-updated', room.getState());
-    await saveRoom(room.code, room);
+    await saveRoomSettings(room);
   });
 
   socket.on('start-next-round', () => {
@@ -316,7 +311,7 @@ io.on('connection', socket => {
     if (!room) return;
     room.removePlayer(socket.id);
     if (room.players.length === 0) {
-      await deleteRoom(code);
+      await saveRoomSettings(room); // keep settings in Redis for 24h
       rooms.delete(code);
     } else {
       io.to(code).emit('room-updated', room.getState());
