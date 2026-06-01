@@ -20,12 +20,18 @@ export function useSocket() {
     const socket = getSocket();
     const on = (ev, fn) => socket.on(ev, fn);
 
-    on('connect', () => {
+    const tryRejoin = () => {
       const session = getSavedSession();
       if (session.roomCode && session.clientId) {
         socket.emit('rejoin-room', session);
       }
-    });
+    };
+
+    // Fire immediately if already connected, otherwise wait for connect event
+    if (socket.connected) {
+      tryRejoin();
+    }
+    on('connect', tryRejoin);
 
     on('room-joined', ({ roomCode, playerId }) => {
       ref.current.setRoomCode(roomCode);

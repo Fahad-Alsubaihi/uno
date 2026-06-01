@@ -740,6 +740,35 @@ class GameRoom {
     return { ok: true };
   }
 
+  forceResetToLobby() {
+    // Restore all eliminated players back into the room
+    for (const ep of this.eliminatedPlayers) {
+      if (!this.players.find(p => p.clientId === ep.clientId)) {
+        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: false });
+      }
+    }
+    this.eliminatedPlayers = [];
+    this.gameStarted = false;
+    this.waitingForNextRound = false;
+    this.scores = {};
+    this.currentRound = 1;
+    this.pendingDraw = 0;
+    this.lastDrawValue = 0;
+    this.pendingSevenSwap = false;
+    this.pendingSevenClientId = null;
+    this.pendingColorRoulette = false;
+    this.pendingColorRouletteClientId = null;
+    this.punishmentApprovals = new Set();
+    this.currentSpinnerId = null;
+    this.currentSpinnerName = null;
+    this.lastLoserId = null;
+    this.lastLoserName = null;
+    this.lastWinner = null;
+    this.wheelRetryCount = 0;
+    this.wheelCumAngle = 0;
+    // Keep: hostClientId, segments, totalRounds, punishmentMode
+  }
+
   restartGame(clientId) {
     if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
 

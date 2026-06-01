@@ -221,6 +221,8 @@ io.on('connection', socket => {
       socket.emit('game-started');
       const base = room.getGameState();
       socket.emit('game-state', { ...base, myHand: existingPlayer.hand });
+      // Notify all connected players that this player reconnected
+      io.to(code).emit('room-updated', room.getState());
     } else {
       io.to(code).emit('room-updated', room.getState());
     }
@@ -470,8 +472,14 @@ io.on('connection', socket => {
       r.removePlayer(clientId);
 
       if (r.players.length === 0) {
+        // Everyone left — save settings and delete room from memory
         await saveRoomSettings(r);
         rooms.delete(code);
+      } else if (r.gameStarted && r.players.length < 2) {
+        // Not enough players to continue — force reset to lobby
+        r.forceResetToLobby();
+        io.to(code).emit('game-restarted', r.getState());
+        await saveRoomSettings(r);
       } else {
         io.to(code).emit('room-updated', r.getState());
         if (r.gameStarted) broadcastGameState(r);
