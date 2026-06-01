@@ -298,7 +298,12 @@ class GameRoom {
         break;
       case 'wild-reverse-draw-four':
         this.direction *= -1;
-        this._advanceTurn(1);
+        if (this.players.length === 2) {
+          // 2-player: reverse skips opponent → current player has pendingDraw=4
+          // Stay on current player so they can counter-stack or draw manually
+        } else {
+          this._advanceTurn(1);
+        }
         break;
       case 'discard-all': {
         const col = card.color;
@@ -497,6 +502,14 @@ class GameRoom {
       case 'wild-draw-six':
       case 'wild-draw-ten':
         this._advanceTurn(1);
+        break;
+      case 'wild-reverse-draw-four':
+        this.direction *= -1;
+        if (this.players.length === 2) {
+          // jumper is now current player with pendingDraw=4 — can counter or draw manually
+        } else {
+          this._advanceTurn(1);
+        }
         break;
       case 'discard-all': {
         const col = card.color;
