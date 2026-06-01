@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getClientId } from '../utils/clientId';
 
 const DEFAULT_SEGMENTS = [
   { id: '1', type: 'punishment', text: 'اشرب كوب ماء كامل',               size: 3, color: '#EF4444' },
@@ -14,7 +15,7 @@ const DEFAULT_SEGMENTS = [
 export const useGameStore = create((set) => ({
   screen: 'home',
   playerName: '',
-  playerId: null,
+  playerId: getClientId(), // permanent — never changes
   roomCode: null,
   roomPlayers: [],
   gameState: null,
@@ -60,7 +61,7 @@ export const useGameStore = create((set) => ({
   reset: () => set({
     screen: 'home',
     playerName: '',
-    playerId: null,
+    playerId: getClientId(), // keep permanent clientId
     roomCode: null,
     roomPlayers: [],
     gameState: null,

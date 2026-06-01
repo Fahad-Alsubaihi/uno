@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { PunishmentSetup } from './PunishmentSetup';
+import { clearSession } from '../utils/clientId';
 
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg, #EF4444, #991B1B)',
@@ -470,7 +471,7 @@ export function LobbyScreen({ socket }) {
 
         <motion.button
           whileHover={{ opacity: 0.8 }}
-          onClick={reset}
+          onClick={() => { clearSession(); reset(); }}
           style={{
             width: '100%', marginTop: 10,
             background: 'transparent',

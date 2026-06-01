@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
+import { getClientId } from '../utils/clientId';
 
 export function useGame(socket) {
-  const createRoom        = useCallback((n)    => socket.emit('create-room',        { playerName: n }), [socket]);
-  const joinRoom          = useCallback((c, n) => socket.emit('join-room',           { roomCode: c, playerName: n }), [socket]);
+  const createRoom        = useCallback((n)    => socket.emit('create-room',  { clientId: getClientId(), playerName: n }), [socket]);
+  const joinRoom          = useCallback((c, n) => socket.emit('join-room',    { clientId: getClientId(), roomCode: c, playerName: n }), [socket]);
   const startGame         = useCallback(()     => socket.emit('start-game'), [socket]);
   const playCard          = useCallback((i, c) => socket.emit('play-card',           { cardIndex: i, chosenColor: c }), [socket]);
   const drawCard          = useCallback(()     => socket.emit('draw-card'), [socket]);

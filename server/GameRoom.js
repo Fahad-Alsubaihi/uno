@@ -2,42 +2,28 @@ const { v4: uuidv4 } = require('uuid');
 
 const COLORS = ['red', 'green', 'blue', 'yellow'];
 
-/* ──────────────────────────────────────────────────────────────
-   المشكلة 1 و 2: إنشاء الدكة الرسمية لـ No Mercy (168 ورقة بالضبط)
-────────────────────────────────────────────────────────────── */
 function createDeck() {
   const deck = [];
-  
-  // 1. الأوراق الملونة: 4 ألوان × 29 ورقة لكل لون = 116 ورقة
   for (const color of COLORS) {
-    // الرقم 0 (نسخة واحدة لكل لون)
     deck.push({ id: uuidv4(), color, type: 'number', value: 0 });
-    
-    // الأرقام من 1 إلى 9 (نسختين لكل رقم لكل لون)
     for (let n = 1; n <= 9; n++) {
       deck.push({ id: uuidv4(), color, type: 'number', value: n });
       deck.push({ id: uuidv4(), color, type: 'number', value: n });
     }
-    
-    // أوراق الأكشن الملونة (نسختين من كل نوع لكل لون)
-    // [تم تنظيف ومنع سحب كروت draw-six و draw-ten الملونة غير الموجودة بالنسخة الرسمية]
     for (let i = 0; i < 2; i++) {
-      deck.push({ id: uuidv4(), color, type: 'skip', value: 'skip' });
-      deck.push({ id: uuidv4(), color, type: 'reverse', value: 'reverse' });
-      deck.push({ id: uuidv4(), color, type: 'draw-two', value: '+2', drawValue: 2 });
-      deck.push({ id: uuidv4(), color, type: 'skip-all', value: 'skip-all' });
+      deck.push({ id: uuidv4(), color, type: 'skip',        value: 'skip' });
+      deck.push({ id: uuidv4(), color, type: 'reverse',     value: 'reverse' });
+      deck.push({ id: uuidv4(), color, type: 'draw-two',    value: '+2', drawValue: 2 });
+      deck.push({ id: uuidv4(), color, type: 'skip-all',    value: 'skip-all' });
       deck.push({ id: uuidv4(), color, type: 'discard-all', value: 'discard-all' });
     }
   }
-
-  // No Mercy wilds x4 each = 16 wild cards
   for (let i = 0; i < 4; i++) {
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-six',          value: '+6',    drawValue: 6 });
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild-draw-ten',          value: '+10',   drawValue: 10 });
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild-reverse-draw-four', value: 'عكس+4', drawValue: 4 });
     deck.push({ id: uuidv4(), color: 'wild', type: 'wild-color-roulette',    value: 'روليت' });
   }
-
   return deck;
 }
 
@@ -52,52 +38,47 @@ function shuffle(arr) {
 
 const MERCY_LIMIT = 25;
 
-const WARM = ['#EF4444','#F97316','#EC4899','#DC2626','#B45309','#EA580C','#DB2777','#991B1B'];
-const COOL = ['#7C3AED','#2563EB','#0891B2','#4F46E5'];
-
 let _sid = 1;
 function sid() { return String(_sid++); }
 
 const DEFAULT_SEGMENTS = [
-  { id: sid(), type: 'punishment', text: 'اشرب كوب ماء كامل',          size: 3, color: '#EF4444' },
-  { id: sid(), type: 'punishment', text: 'قلد صوت حيوان 10 ثواني',           size: 2, color: '#F97316' },
-  { id: sid(), type: 'luck',       text: 'retry',                            size: 2, color: '#7C3AED' },
-  { id: sid(), type: 'punishment', text: 'افعل 10 ضغط',                     size: 3, color: '#EC4899' },
-  { id: sid(), type: 'punishment', text: 'غني مقطع',                         size: 2, color: '#DC2626' },
-  { id: sid(), type: 'luck',       text: 'reverse',                          size: 1, color: '#2563EB' },
-  { id: sid(), type: 'punishment', text: 'قل سراً محرجاً',                   size: 2, color: '#B45309' },
-  { id: sid(), type: 'punishment', text: 'تخطي دورك مرتين',                  size: 2, color: '#EA580C' },
+  { id: sid(), type: 'punishment', text: 'اشرب كوب ماء كامل',        size: 3, color: '#EF4444' },
+  { id: sid(), type: 'punishment', text: 'قلد صوت حيوان 10 ثواني',   size: 2, color: '#F97316' },
+  { id: sid(), type: 'luck',       text: 'retry',                     size: 2, color: '#7C3AED' },
+  { id: sid(), type: 'punishment', text: 'افعل 10 ضغط',              size: 3, color: '#EC4899' },
+  { id: sid(), type: 'punishment', text: 'غني مقطع',                  size: 2, color: '#DC2626' },
+  { id: sid(), type: 'luck',       text: 'reverse',                   size: 1, color: '#2563EB' },
+  { id: sid(), type: 'punishment', text: 'قل سراً محرجاً',            size: 2, color: '#B45309' },
+  { id: sid(), type: 'punishment', text: 'تخطي دورك مرتين',           size: 2, color: '#EA580C' },
 ];
 
 class GameRoom {
   constructor(code) {
     this.code = code;
+    // players: { clientId, id: socketId, name, hand, unoCalled, connected }
     this.players = [];
-    this.eliminatedPlayers = [];
+    this.hostClientId = null;
+    this.eliminatedPlayers = []; // { clientId, id: socketId, name }
     this.gameStarted = false;
     this.deck = [];
     this.discardPile = [];
     this.currentPlayerIndex = 0;
     this.direction = 1;
     this.pendingDraw = 0;
-    
-    // إصلاح المشكلة 3: تتبع قيمة ورقة السحب الأخيرة لضمان مطابقة التراكم الرياضي التصاعدي
-    this.lastDrawValue = 0; 
-
+    this.lastDrawValue = 0;
     this.pendingSevenSwap = false;
-    this.pendingSevenPlayerId = null;
+    this.pendingSevenClientId = null;
     this.pendingColorRoulette = false;
-    this.pendingColorRoulettePlayerId = null;
+    this.pendingColorRouletteClientId = null;
     this.rouletteChosenColor = null;
     this.currentColor = null;
-    
-    // Punishment mode
+    // Punishment
     this.punishmentMode = false;
     this.segments = DEFAULT_SEGMENTS.map(s => ({ ...s }));
-    this.punishmentApprovals = new Set();
+    this.punishmentApprovals = new Set(); // stores clientIds
     this.wheelRetryCount = 0;
     this.wheelCumAngle = 0;
-    this.currentSpinnerId = null;
+    this.currentSpinnerId = null;   // clientId of current spinner
     this.currentSpinnerName = null;
     this.lastWinner = null;
     this.lastLoserId = null;
@@ -108,12 +89,28 @@ class GameRoom {
     this.waitingForNextRound = false;
   }
 
-  addPlayer(id, name) {
-    this.players.push({ id, name, hand: [], unoCalled: false });
+  // ── Player management ──
+
+  addPlayer(clientId, socketId, name) {
+    if (!this.hostClientId) this.hostClientId = clientId;
+    this.players.push({ clientId, id: socketId, name, hand: [], unoCalled: false, connected: true });
   }
 
-  removePlayer(id) {
-    const idx = this.players.findIndex(p => p.id === id);
+  reconnectPlayer(clientId, newSocketId) {
+    const p = this.players.find(p => p.clientId === clientId);
+    if (!p) return false;
+    p.id = newSocketId;
+    p.connected = true;
+    return true;
+  }
+
+  disconnectPlayer(clientId) {
+    const p = this.players.find(p => p.clientId === clientId);
+    if (p) p.connected = false;
+  }
+
+  removePlayer(clientId) {
+    const idx = this.players.findIndex(p => p.clientId === clientId);
     if (idx === -1) return;
     if (this.gameStarted) {
       this.deck.push(...this.players[idx].hand);
@@ -126,9 +123,11 @@ class GameRoom {
     }
   }
 
+  // ── Game start ──
+
   startGame() {
     if (this.punishmentMode) {
-      const notApproved = this.players.filter(p => !this.punishmentApprovals.has(p.id));
+      const notApproved = this.players.filter(p => !this.punishmentApprovals.has(p.clientId));
       if (notApproved.length > 0) return { error: `${notApproved[0].name} لم يوافق بعد` };
     }
     this.gameStarted = true;
@@ -143,9 +142,9 @@ class GameRoom {
     this.scores = {};
     this.waitingForNextRound = false;
     this.pendingSevenSwap = false;
-    this.pendingSevenPlayerId = null;
+    this.pendingSevenClientId = null;
     this.pendingColorRoulette = false;
-    this.pendingColorRoulettePlayerId = null;
+    this.pendingColorRouletteClientId = null;
 
     for (const player of this.players) {
       player.hand = [];
@@ -153,7 +152,6 @@ class GameRoom {
       for (let i = 0; i < 7; i++) player.hand.push(this.deck.pop());
     }
 
-    // أول كارت: يجب أن يكون رقم عادي وليس أكشن أو برية معقدة لضمان استقرار البداية
     let startCard;
     do {
       startCard = this.deck.pop();
@@ -165,10 +163,11 @@ class GameRoom {
 
     this.discardPile.push(startCard);
     this.currentColor = startCard.color;
-
     if (startCard.type === 'skip') this._advanceTurn(1);
     else if (startCard.type === 'reverse') this.direction = -1;
   }
+
+  // ── Turn helpers ──
 
   _advanceTurn(times = 1) {
     for (let i = 0; i < times; i++) {
@@ -193,38 +192,28 @@ class GameRoom {
 
   _checkMercyRule(player) {
     if (player.hand.length >= MERCY_LIMIT) {
-      this._eliminatePlayer(player.id);
+      this._eliminatePlayer(player.clientId);
       return true;
     }
     return false;
   }
 
-  _eliminatePlayer(playerId) {
-    const idx = this.players.findIndex(p => p.id === playerId);
+  _eliminatePlayer(clientId) {
+    const idx = this.players.findIndex(p => p.clientId === clientId);
     if (idx === -1) return;
-    this.eliminatedPlayers.push({ id: this.players[idx].id, name: this.players[idx].name });
-    this.deck.push(...this.players[idx].hand);
+    const p = this.players[idx];
+    this.eliminatedPlayers.push({ clientId: p.clientId, id: p.id, name: p.name });
+    this.deck.push(...p.hand);
     this.deck = shuffle(this.deck);
     this.players.splice(idx, 1);
     if (idx < this.currentPlayerIndex) this.currentPlayerIndex--;
-    if (this.players.length > 0) {
-      this.currentPlayerIndex = this.currentPlayerIndex % this.players.length;
-    }
+    if (this.players.length > 0) this.currentPlayerIndex = this.currentPlayerIndex % this.players.length;
   }
 
-  /* ──────────────────────────────────────────────────────────────
-     المشكلة 3: فحص التراكم واللعب بطرق التكديس المتصاعدة الرسمية
-  ────────────────────────────────────────────────────────────── */
   _isPlayable(card) {
     const top = this.discardPile[this.discardPile.length - 1];
-
-    // في حال وجود كروت متراكمة بالساحة: يُسمح فقط بلعب كارت سحب مساوي أو أعلى من كارت السحب الأخير
-    if (this.pendingDraw > 0) {
-      return (card.drawValue || 0) >= this.lastDrawValue;
-    }
-
+    if (this.pendingDraw > 0) return (card.drawValue || 0) >= this.lastDrawValue;
     if (this._isWildCard(card.type)) return true;
-
     const activeColor = this.currentColor || top?.color;
     if (!activeColor) return true;
     if (card.color === activeColor) return true;
@@ -236,42 +225,36 @@ class GameRoom {
   _rotateHands() {
     if (this.players.length < 2) return;
     const hands = this.players.map(p => p.hand);
-    if (this.direction === 1) {
-      const first = hands.shift();
-      hands.push(first);
-    } else {
-      const last = hands.pop();
-      hands.unshift(last);
-    }
+    if (this.direction === 1) { const first = hands.shift(); hands.push(first); }
+    else { const last = hands.pop(); hands.unshift(last); }
     this.players.forEach((p, i) => { p.hand = hands[i]; });
   }
 
-  _checkUnoPenalties(exceptId) {
+  _checkUnoPenalties(exceptClientId) {
     for (const player of this.players) {
-      if (player.id === exceptId) continue;
-      if (player.hand.length === 1 && !player.unoCalled) {
-        this._drawCards(player, 2);
-      }
+      if (player.clientId === exceptClientId) continue;
+      if (player.hand.length === 1 && !player.unoCalled) this._drawCards(player, 2);
     }
   }
 
   _isWildCard(type) {
-    return ['wild-draw-six', 'wild-draw-ten',
-            'wild-reverse-draw-four', 'wild-color-roulette'].includes(type);
+    return ['wild-draw-six', 'wild-draw-ten', 'wild-reverse-draw-four', 'wild-color-roulette'].includes(type);
   }
 
-  playCard(playerId, cardIndex, chosenColor = null) {
+  // ── Card actions ──
+
+  playCard(clientId, cardIndex, chosenColor = null) {
     if (this.waitingForNextRound) return { error: 'في انتظار بدء الجولة التالية' };
     if (this.pendingSevenSwap)    return { error: 'أكمل تبادل السبعة أولاً' };
     if (this.pendingColorRoulette) return { error: 'أكمل روليت الألوان أولاً' };
 
-    const pIdx = this.players.findIndex(p => p.id === playerId);
-    if (pIdx === -1)                   return { error: 'لاعب غير موجود' };
-    if (pIdx !== this.currentPlayerIndex) return { error: 'ليس دورك' };
+    const pIdx = this.players.findIndex(p => p.clientId === clientId);
+    if (pIdx === -1)                        return { error: 'لاعب غير موجود' };
+    if (pIdx !== this.currentPlayerIndex)   return { error: 'ليس دورك' };
 
     const player = this.players[pIdx];
     const card = player.hand[cardIndex];
-    if (!card)                return { error: 'ورقة غير صالحة' };
+    if (!card)                 return { error: 'ورقة غير صالحة' };
     if (!this._isPlayable(card)) return { error: 'لا يمكنك لعب هذه البطاقة' };
 
     player.hand.splice(cardIndex, 1);
@@ -282,14 +265,12 @@ class GameRoom {
         card.chosenColor = COLORS.includes(chosenColor) ? chosenColor : 'red';
         this.currentColor = card.chosenColor;
       }
-      // wild-color-roulette: currentColor stays unchanged until next player picks via colorRoulettePick
     } else {
       this.currentColor = card.color;
     }
 
     this.discardPile.push(card);
 
-    // تحديث قيم التراكم المضافة إذا كان للكارت تأثير سحب متراكم
     if (card.drawValue > 0) {
       this.lastDrawValue = card.drawValue;
       this.pendingDraw += card.drawValue;
@@ -300,39 +281,33 @@ class GameRoom {
       return { card, ...winResult };
     }
 
-    // معالجة حركات الأكشن الرسمية
     switch (card.type) {
       case 'skip':
         this._advanceTurn(2);
         break;
-
       case 'skip-all':
         break;
-
       case 'reverse':
         this.direction *= -1;
         this._advanceTurn(this.players.length === 2 ? 2 : 1);
         break;
-
       case 'draw-two':
       case 'wild-draw-six':
       case 'wild-draw-ten':
         this._advanceTurn(1);
         break;
-
-    case 'wild-reverse-draw-four':
-      this.direction *= -1;
-      if (this.players.length === 2) {
-        this.pendingDraw = 0;
-        this.lastDrawValue = 0;
-        this._drawCards(player, 4);
-        this._checkMercyRule(player);
-        this._advanceTurn(1);
-      } else {
-        this._advanceTurn(1);
-      }
-      break;
-
+      case 'wild-reverse-draw-four':
+        this.direction *= -1;
+        if (this.players.length === 2) {
+          this.pendingDraw = 0;
+          this.lastDrawValue = 0;
+          this._drawCards(player, 4);
+          this._checkMercyRule(player);
+          this._advanceTurn(1);
+        } else {
+          this._advanceTurn(1);
+        }
+        break;
       case 'discard-all': {
         const col = card.color;
         player.hand = player.hand.filter(c => c.color !== col);
@@ -343,17 +318,15 @@ class GameRoom {
         this._advanceTurn(1);
         break;
       }
-
       case 'wild-color-roulette':
         this._advanceTurn(1);
         this.pendingColorRoulette = true;
-        this.pendingColorRoulettePlayerId = this.players[this.currentPlayerIndex]?.id;
+        this.pendingColorRouletteClientId = this.players[this.currentPlayerIndex]?.clientId;
         break;
-
       case 'number':
         if (card.value === 7) {
           this.pendingSevenSwap = true;
-          this.pendingSevenPlayerId = playerId;
+          this.pendingSevenClientId = clientId;
         } else if (card.value === 0) {
           this._rotateHands();
           this._advanceTurn(1);
@@ -361,41 +334,31 @@ class GameRoom {
           this._advanceTurn(1);
         }
         break;
-
       default:
         this._advanceTurn(1);
     }
 
-    this._checkUnoPenalties(playerId);
+    this._checkUnoPenalties(clientId);
     return { card };
   }
 
-  /* ──────────────────────────────────────────────────────────────
-     المشكلة 3: التصفير الكامل لعدادات التراكم عند تفعيل عقوبة السحب
-  ────────────────────────────────────────────────────────────── */
-  drawCard(playerId) {
-    const pIdx = this.players.findIndex(p => p.id === playerId);
-    if (pIdx === -1)                   return { error: 'لاعب غير موجود' };
+  drawCard(clientId) {
+    const pIdx = this.players.findIndex(p => p.clientId === clientId);
+    if (pIdx === -1)                      return { error: 'لاعب غير موجود' };
     if (pIdx !== this.currentPlayerIndex) return { error: 'ليس دورك' };
 
     const player = this.players[pIdx];
 
-    // في حال تنفيذ عقوبة التراكم
     if (this.pendingDraw > 0) {
       const count = this.pendingDraw;
-      
       this._drawCards(player, count);
-      
-      // تصفير العدادات كلياً بعد ابتلاع العقوبة
       this.pendingDraw = 0;
-      this.lastDrawValue = 0; 
-      
+      this.lastDrawValue = 0;
       const eliminated = this._checkMercyRule(player);
       if (!eliminated) this._advanceTurn(1);
       return { drew: count, eliminated };
     }
 
-    // السحب العادي (ورقة واحدة فقط عند عدم وجود تراكم)
     let drew = 0;
     let drawnCard;
     do {
@@ -411,12 +374,20 @@ class GameRoom {
     return { drew, eliminated };
   }
 
-  sevenSwap(playerId, targetPlayerId) {
-    if (!this.pendingSevenSwap)            return { error: 'لا يوجد تبادل معلق' };
-    if (playerId !== this.pendingSevenPlayerId) return { error: 'ليس تبادلك' };
+  passTurn(clientId) {
+    const pIdx = this.players.findIndex(p => p.clientId === clientId);
+    if (pIdx === -1)                      return { error: 'لاعب غير موجود' };
+    if (pIdx !== this.currentPlayerIndex) return { error: 'ليس دورك' };
+    this._advanceTurn(1);
+    return { ok: true };
+  }
 
-    const pIdx = this.players.findIndex(p => p.id === playerId);
-    const tIdx = this.players.findIndex(p => p.id === targetPlayerId);
+  sevenSwap(clientId, targetClientId) {
+    if (!this.pendingSevenSwap)              return { error: 'لا يوجد تبادل معلق' };
+    if (clientId !== this.pendingSevenClientId) return { error: 'ليس تبادلك' };
+
+    const pIdx = this.players.findIndex(p => p.clientId === clientId);
+    const tIdx = this.players.findIndex(p => p.clientId === targetClientId);
     if (pIdx === -1 || tIdx === -1) return { error: 'لاعب غير موجود' };
     if (pIdx === tIdx)              return { error: 'لا يمكن التبادل مع نفسك' };
 
@@ -425,27 +396,26 @@ class GameRoom {
     this.players[tIdx].hand = tmp;
 
     this.pendingSevenSwap = false;
-    this.pendingSevenPlayerId = null;
+    this.pendingSevenClientId = null;
     this._advanceTurn(1);
     return { swapped: true };
   }
 
-  colorRoulettePick(playerId, chosenColor) {
-    if (!this.pendingColorRoulette)                    return { error: 'لا يوجد روليت معلق' };
-    if (playerId !== this.pendingColorRoulettePlayerId) return { error: 'ليس روليتك' };
-    if (!COLORS.includes(chosenColor))                  return { error: 'لون غير صالح' };
-
+  colorRoulettePick(clientId, chosenColor) {
+    if (!this.pendingColorRoulette)                      return { error: 'لا يوجد روليت معلق' };
+    if (clientId !== this.pendingColorRouletteClientId)  return { error: 'ليس روليتك' };
+    if (!COLORS.includes(chosenColor))                   return { error: 'لون غير صالح' };
     this.rouletteChosenColor = chosenColor;
     this.currentColor = chosenColor;
     return { colorChosen: true, chosenColor };
   }
 
-  rouletteDraw(playerId) {
-    if (!this.pendingColorRoulette)                    return { error: 'لا يوجد روليت معلق' };
-    if (playerId !== this.pendingColorRoulettePlayerId) return { error: 'ليس روليتك' };
-    if (!this.rouletteChosenColor)                      return { error: 'اختر اللون أولاً' };
+  rouletteDraw(clientId) {
+    if (!this.pendingColorRoulette)                      return { error: 'لا يوجد روليت معلق' };
+    if (clientId !== this.pendingColorRouletteClientId)  return { error: 'ليس روليتك' };
+    if (!this.rouletteChosenColor)                       return { error: 'اختر اللون أولاً' };
 
-    const player = this.players.find(p => p.id === playerId);
+    const player = this.players.find(p => p.clientId === clientId);
     if (!player) return { error: 'لاعب غير موجود' };
 
     if (this.deck.length === 0) this._reshuffleDeck();
@@ -453,12 +423,11 @@ class GameRoom {
 
     const drawnCard = this.deck.pop();
     player.hand.push(drawnCard);
-
     const found = drawnCard.color === this.rouletteChosenColor;
 
     if (found) {
       this.pendingColorRoulette = false;
-      this.pendingColorRoulettePlayerId = null;
+      this.pendingColorRouletteClientId = null;
       this.rouletteChosenColor = null;
       const eliminated = this._checkMercyRule(player);
       if (!eliminated) this._advanceTurn(1);
@@ -468,37 +437,36 @@ class GameRoom {
     const eliminated = this._checkMercyRule(player);
     if (eliminated) {
       this.pendingColorRoulette = false;
-      this.pendingColorRoulettePlayerId = null;
+      this.pendingColorRouletteClientId = null;
       this.rouletteChosenColor = null;
       return { drew: 1, card: drawnCard, found: false, eliminated: true };
     }
-
     return { drew: 1, card: drawnCard, found: false, eliminated: false };
   }
 
-  callUno(playerId) {
-    const player = this.players.find(p => p.id === playerId);
-    if (!player)                   return { error: 'لاعب غير موجود' };
-    if (player.hand.length !== 1)  return { error: 'لا يمكن الصياح UNO' };
+  callUno(clientId) {
+    const player = this.players.find(p => p.clientId === clientId);
+    if (!player)                  return { error: 'لاعب غير موجود' };
+    if (player.hand.length !== 1) return { error: 'لا يمكن الصياح UNO' };
     player.unoCalled = true;
     return { success: true };
   }
 
-  catchUno(callerId, targetId) {
-    const target = this.players.find(p => p.id === targetId);
-    if (!target)                                        return { error: 'لاعب غير موجود' };
+  catchUno(callerClientId, targetClientId) {
+    const target = this.players.find(p => p.clientId === targetClientId);
+    if (!target)                                       return { error: 'لاعب غير موجود' };
     if (target.hand.length !== 1 || target.unoCalled) return { error: 'لا يمكن مسكه' };
     this._drawCards(target, 2);
     return { caught: true, targetName: target.name };
   }
 
-  jumpIn(playerId, cardIndex) {
+  jumpIn(clientId, cardIndex) {
     if (this.pendingSevenSwap)    return { error: 'لا يمكن الاقتحام أثناء التبادل' };
     if (this.pendingColorRoulette) return { error: 'لا يمكن الاقتحام أثناء الروليت' };
 
-    const pIdx = this.players.findIndex(p => p.id === playerId);
-    if (pIdx === -1)                            return { error: 'لاعب غير موجود' };
-    if (pIdx === this.currentPlayerIndex)        return { error: 'دورك بالفعل' };
+    const pIdx = this.players.findIndex(p => p.clientId === clientId);
+    if (pIdx === -1)                          return { error: 'لاعب غير موجود' };
+    if (pIdx === this.currentPlayerIndex)     return { error: 'دورك بالفعل' };
 
     const player = this.players[pIdx];
     const card = player.hand[cardIndex];
@@ -507,9 +475,8 @@ class GameRoom {
     const top = this.discardPile[this.discardPile.length - 1];
     const sameCard =
       card.color === top.color &&
-      card.type === top.type &&
+      card.type  === top.type &&
       (card.type !== 'number' || card.value === top.value);
-
     if (!sameCard) return { error: 'الورقة لا تتطابق للاقتحام' };
 
     player.hand.splice(cardIndex, 1);
@@ -524,12 +491,12 @@ class GameRoom {
 
     if (player.hand.length === 0) {
       this.gameStarted = false;
-      return { card, gameOver: true, winner: { id: player.id, name: player.name } };
+      return { card, gameOver: true, winner: { id: player.clientId, name: player.name } };
     }
 
     switch (card.type) {
       case 'skip':     this._advanceTurn(2); break;
-      case 'skip-all': break; 
+      case 'skip-all': break;
       case 'reverse':
         this.direction *= -1;
         this._advanceTurn(this.players.length === 2 ? 2 : 1);
@@ -549,57 +516,50 @@ class GameRoom {
         this._advanceTurn(1);
         break;
       }
-      default:
-        this._advanceTurn(1);
+      default: this._advanceTurn(1);
     }
 
-    this._checkUnoPenalties(playerId);
+    this._checkUnoPenalties(clientId);
     return { card };
   }
 
-  /* ── Punishment Mode ── */
-  setPunishmentMode(playerId, enabled) {
-    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+  // ── Punishment mode ──
+
+  setPunishmentMode(clientId, enabled) {
+    if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
     this.punishmentMode = enabled;
     this.punishmentApprovals.clear();
     return { ok: true };
   }
 
-  setSegments(playerId, segments) {
-    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+  setSegments(clientId, segments) {
+    if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
     if (!Array.isArray(segments) || segments.length < 1) return { error: 'يجب أن يكون هناك قسم واحد على الأقل' };
     this.segments = segments.slice(0, 20);
     return { ok: true };
   }
 
-  approvePunishment(playerId) {
-    this.punishmentApprovals.add(playerId);
+  approvePunishment(clientId) {
+    this.punishmentApprovals.add(clientId);
     return { ok: true };
   }
 
-  spinWheel(playerId) {
-    if (!this.punishmentMode) return { error: 'وضع العقوبات غير مفعّل' };
-    if (playerId !== this.currentSpinnerId) return { error: 'ليس دورك للدوران' };
-    if (!this.segments || this.segments.length === 0) return { error: 'لا توجد أقسام' };
+  spinWheel(clientId) {
+    if (!this.punishmentMode)               return { error: 'وضع العقوبات غير مفعّل' };
+    if (clientId !== this.currentSpinnerId) return { error: 'ليس دورك للدوران' };
+    if (!this.segments?.length)             return { error: 'لا توجد أقسام' };
 
     const segs = this.segments;
     const totalSize = segs.reduce((s, g) => s + g.size, 0);
 
     let rand = Math.random() * totalSize;
     let chosen = segs[segs.length - 1];
-    let cumAngle = 0;
-    let chosenStart = 0;
-    let chosenSpan = 0;
+    let cumAngle = 0, chosenStart = 0, chosenSpan = 0;
 
     for (const seg of segs) {
       const span = (seg.size / totalSize) * 360;
       rand -= seg.size;
-      if (rand <= 0) {
-        chosen = seg;
-        chosenStart = cumAngle;
-        chosenSpan = span;
-        break;
-      }
+      if (rand <= 0) { chosen = seg; chosenStart = cumAngle; chosenSpan = span; break; }
       cumAngle += span;
     }
 
@@ -653,45 +613,10 @@ class GameRoom {
     };
   }
 
-  getState() {
-    return {
-      code: this.code,
-      players: this.players.map(p => ({
-        id: p.id, name: p.name, cardCount: p.hand.length, unoCalled: p.unoCalled,
-      })),
-      gameStarted: this.gameStarted,
-      totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
-    };
-  }
+  // ── Rounds ──
 
-  getGameState() {
-    const topCard = this.discardPile[this.discardPile.length - 1];
-    return {
-      players: this.players.map(p => ({
-        id: p.id, name: p.name, cardCount: p.hand.length, unoCalled: p.unoCalled,
-      })),
-      eliminatedPlayers: this.eliminatedPlayers,
-      topCard,
-      currentColor: this.currentColor || topCard?.color,
-      currentPlayerId: this.players[this.currentPlayerIndex]?.id,
-      direction: this.direction,
-      pendingDraw: this.pendingDraw,
-      lastDrawValue: this.lastDrawValue, // مضاف للـ State الخارجي للمزامنة
-      pendingSevenSwap: this.pendingSevenSwap,
-      pendingSevenPlayerId: this.pendingSevenPlayerId,
-      pendingColorRoulette: this.pendingColorRoulette,
-      pendingColorRoulettePlayerId: this.pendingColorRoulettePlayerId,
-      rouletteChosenColor: this.rouletteChosenColor,
-      deckCount: this.deck.length,
-      currentRound: this.currentRound,
-      totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
-      scores: this.scores,
-      waitingForNextRound: this.waitingForNextRound,
-    };
-  }
-
-  setRounds(playerId, rounds) {
-    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+  setRounds(clientId, rounds) {
+    if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
     this.totalRounds = rounds === '∞' ? Infinity : Number(rounds);
     return { ok: true };
   }
@@ -699,18 +624,17 @@ class GameRoom {
   _calcRoundScore(hand) {
     return hand.reduce((sum, card) => {
       if (card.type === 'number') return sum + Number(card.value);
-      if (card.color === 'wild')  return sum + 50;  // wild-draw-six, wild-draw-ten, wild-reverse-draw-four, wild-color-roulette
-      return sum + 20;                               // skip, reverse, draw-two, skip-all, discard-all
+      if (card.color === 'wild')  return sum + 50;
+      return sum + 20;
     }, 0);
   }
 
   _handleWin(player) {
-    const roundWinner = { id: player.id, name: player.name };
+    const roundWinner = { id: player.clientId, name: player.name };
     const allPlayers = [...this.players, ...this.eliminatedPlayers];
 
-    // Score this round for the round winner
     for (const p of this.players) {
-      if (p.id === roundWinner.id) continue;
+      if (p.clientId === roundWinner.id) continue;
       this.scores[roundWinner.id] = (this.scores[roundWinner.id] || 0) + this._calcRoundScore(p.hand);
     }
     for (const e of this.eliminatedPlayers) {
@@ -719,7 +643,6 @@ class GameRoom {
 
     console.log(`[Round ${this.currentRound}/${this.totalRounds}] RoundWinner: ${roundWinner.name}, Scores:`, this.scores);
 
-    // Game ends: last round by count OR any player reaches 1000 points
     const isLastRound = this.totalRounds !== Infinity && this.currentRound >= this.totalRounds;
     const hasReachedLimit = Object.values(this.scores).some(s => s >= 1000);
 
@@ -734,21 +657,19 @@ class GameRoom {
       };
     }
 
-    // Game over — winner = player with highest total score
-    let topScore = -1;
-    let gameWinnerId = roundWinner.id;
+    // Game over — winner = highest score
+    let topScore = -1, gameWinnerId = roundWinner.id;
     for (const p of allPlayers) {
-      const s = this.scores[p.id] || 0;
-      if (s > topScore) { topScore = s; gameWinnerId = p.id; }
+      const s = this.scores[p.clientId] || 0;
+      if (s > topScore) { topScore = s; gameWinnerId = p.clientId; }
     }
-    const gameWinnerPlayer = allPlayers.find(p => p.id === gameWinnerId);
+    const gameWinnerPlayer = allPlayers.find(p => p.clientId === gameWinnerId);
     const gameWinner = { id: gameWinnerId, name: gameWinnerPlayer?.name || roundWinner.name };
 
-    // Loser = active player with fewest points (for punishment wheel)
     const loserPlayer = [...this.players]
-      .filter(p => p.id !== gameWinnerId)
-      .sort((a, b) => (this.scores[a.id] || 0) - (this.scores[b.id] || 0))[0];
-    const gameLoser = loserPlayer ? { id: loserPlayer.id, name: loserPlayer.name } : null;
+      .filter(p => p.clientId !== gameWinnerId)
+      .sort((a, b) => (this.scores[a.clientId] || 0) - (this.scores[b.clientId] || 0))[0];
+    const gameLoser = loserPlayer ? { id: loserPlayer.clientId, name: loserPlayer.name } : null;
 
     this.gameStarted = false;
     if (this.punishmentMode && gameLoser) {
@@ -760,8 +681,7 @@ class GameRoom {
     }
 
     return {
-      gameOver: true,
-      finalRound: true,
+      gameOver: true, finalRound: true,
       winner: gameWinner,
       loser: gameLoser,
       scores: { ...this.scores },
@@ -772,8 +692,8 @@ class GameRoom {
 
   _startNewRound() {
     for (const ep of this.eliminatedPlayers) {
-      if (!this.players.find(p => p.id === ep.id)) {
-        this.players.push({ id: ep.id, name: ep.name, hand: [], unoCalled: false });
+      if (!this.players.find(p => p.clientId === ep.clientId)) {
+        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: true });
       }
     }
     this.eliminatedPlayers = [];
@@ -784,9 +704,9 @@ class GameRoom {
     this.pendingDraw = 0;
     this.lastDrawValue = 0;
     this.pendingSevenSwap = false;
-    this.pendingSevenPlayerId = null;
+    this.pendingSevenClientId = null;
     this.pendingColorRoulette = false;
-    this.pendingColorRoulettePlayerId = null;
+    this.pendingColorRouletteClientId = null;
     this.rouletteChosenColor = null;
 
     for (const player of this.players) {
@@ -798,19 +718,16 @@ class GameRoom {
     let startCard;
     do {
       startCard = this.deck.pop();
-      if (startCard.type !== 'number') {
-        this.deck.unshift(startCard);
-        startCard = null;
-      }
+      if (startCard.type !== 'number') { this.deck.unshift(startCard); startCard = null; }
     } while (!startCard);
 
     this.discardPile.push(startCard);
     this.currentColor = startCard.color;
   }
 
-  startNextRound(playerId) {
-    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
-    if (!this.waitingForNextRound) return { error: 'لا يوجد جولة معلقة' };
+  startNextRound(clientId) {
+    if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
+    if (!this.waitingForNextRound)      return { error: 'لا يوجد جولة معلقة' };
     this.currentRound++;
     this.waitingForNextRound = false;
     this._startNewRound();
@@ -818,8 +735,8 @@ class GameRoom {
     return { ok: true };
   }
 
-  restartGame(playerId) {
-    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+  restartGame(clientId) {
+    if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
     this.currentRound = 1;
     this.scores = {};
     this.eliminatedPlayers = [];
@@ -834,6 +751,53 @@ class GameRoom {
     this.wheelRetryCount = 0;
     this.wheelCumAngle = 0;
     return { ok: true };
+  }
+
+  // ── State snapshots ──
+
+  getState() {
+    return {
+      code: this.code,
+      players: this.players.map(p => ({
+        id: p.clientId,    // clientId exposed as id to clients
+        name: p.name,
+        cardCount: p.hand.length,
+        unoCalled: p.unoCalled,
+        connected: p.connected,
+      })),
+      gameStarted: this.gameStarted,
+      totalRounds: this.totalRounds,
+    };
+  }
+
+  getGameState() {
+    const topCard = this.discardPile[this.discardPile.length - 1];
+    return {
+      players: this.players.map(p => ({
+        id: p.clientId,
+        name: p.name,
+        cardCount: p.hand.length,
+        unoCalled: p.unoCalled,
+        connected: p.connected,
+      })),
+      eliminatedPlayers: this.eliminatedPlayers.map(e => ({ id: e.clientId, name: e.name })),
+      topCard,
+      currentColor: this.currentColor || topCard?.color,
+      currentPlayerId: this.players[this.currentPlayerIndex]?.clientId,
+      direction: this.direction,
+      pendingDraw: this.pendingDraw,
+      lastDrawValue: this.lastDrawValue,
+      pendingSevenSwap: this.pendingSevenSwap,
+      pendingSevenPlayerId: this.pendingSevenClientId,
+      pendingColorRoulette: this.pendingColorRoulette,
+      pendingColorRoulettePlayerId: this.pendingColorRouletteClientId,
+      rouletteChosenColor: this.rouletteChosenColor,
+      deckCount: this.deck.length,
+      currentRound: this.currentRound,
+      totalRounds: this.totalRounds,
+      scores: this.scores,
+      waitingForNextRound: this.waitingForNextRound,
+    };
   }
 }
 

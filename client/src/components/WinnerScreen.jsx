@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { useSound } from '../hooks/useSound';
 import { PunishmentWheel } from './PunishmentWheel';
+import { clearSession } from '../utils/clientId';
 
 const BURST_COLORS = ['#F43F5E', '#7C3AED', '#A78BFA', '#FCD34D', '#22C55E', '#60A5FA', '#FB923C', '#F472B6'];
 
@@ -266,7 +267,7 @@ export function WinnerScreen({ socket }) {
           <motion.button
             whileHover={{ opacity: 0.8 }}
             whileTap={{ scale: 0.97 }}
-            onClick={reset}
+            onClick={() => { clearSession(); reset(); }}
             style={{
               background: 'transparent',
               border: '1px solid rgba(255,255,255,0.12)',

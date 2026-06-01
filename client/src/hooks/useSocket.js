@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useGameStore } from '../store/gameStore';
+import { getSavedSession, saveSession, clearSession } from '../utils/clientId';
 
 let _socket = null;
 const _reactionTimers = {};
@@ -19,10 +20,24 @@ export function useSocket() {
     const socket = getSocket();
     const on = (ev, fn) => socket.on(ev, fn);
 
+    on('connect', () => {
+      const session = getSavedSession();
+      if (session.roomCode && session.clientId) {
+        socket.emit('rejoin-room', session);
+      }
+    });
+
     on('room-joined', ({ roomCode, playerId }) => {
       ref.current.setRoomCode(roomCode);
       ref.current.setPlayerId(playerId);
       ref.current.setScreen('lobby');
+      // persist session so page reload can reconnect
+      saveSession(roomCode, ref.current.playerName);
+    });
+
+    on('rejoin-failed', () => {
+      clearSession();
+      // stay on home screen — store already initialized correctly
     });
     on('room-updated', (s) => {
       ref.current.setRoomPlayers(s.players);
@@ -127,11 +142,11 @@ export function useSocket() {
     });
 
     return () => {
-      ['room-joined','room-updated','game-started','game-state','game-over',
-       'player-eliminated','uno-called','uno-caught','seven-swapped',
-       'roulette-resolved','card-played','punishment-updated','wheel-result',
-       'round-over','round-started','rounds-updated','game-restarted','kicked',
-       'reaction','second-chance-granted','error',
+      ['connect','room-joined','rejoin-failed','room-updated','game-started',
+       'game-state','game-over','player-eliminated','uno-called','uno-caught',
+       'seven-swapped','roulette-resolved','card-played','punishment-updated',
+       'wheel-result','round-over','round-started','rounds-updated','game-restarted',
+       'kicked','reaction','second-chance-granted','error',
       ].forEach(ev => socket.off(ev));
     };
   }, []);

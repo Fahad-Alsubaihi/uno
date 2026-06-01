@@ -17,11 +17,18 @@ const io = new Server(server, {
 
 const rooms = new Map();
 
+// clientId tracking
+const socketToClient  = new Map(); // socketId  → clientId
+const clientToSocket  = new Map(); // clientId  → socketId (latest active)
+const disconnectTimers = new Map(); // `${code}:${clientId}` → timer
+
+function cid(socket) { return socketToClient.get(socket.id); }
+
 // Redis
 const redis = createClient({ url: 'redis://redis:6379' });
 redis.connect().catch(console.error);
 
-const TTL = 86400; // 24 hours
+const TTL = 86400;
 
 async function saveRoomSettings(room) {
   await redis.setEx(`room:${room.code}`, TTL, JSON.stringify({
@@ -59,7 +66,7 @@ function broadcastGameState(room) {
 
 function emitGameOver(room, winner) {
   const loserRecord = room.eliminatedPlayers[room.eliminatedPlayers.length - 1] || null;
-  const loser = loserRecord ? { id: loserRecord.id, name: loserRecord.name } : null;
+  const loser = loserRecord ? { id: loserRecord.clientId, name: loserRecord.name } : null;
 
   if (room.punishmentMode && loser) {
     room.currentSpinnerId = loser.id;
@@ -69,80 +76,155 @@ function emitGameOver(room, winner) {
     room.wheelCumAngle = 0;
   }
 
-  io.to(room.code).emit('game-over', {
-    winner,
-    loser,
-    punishmentMode: room.punishmentMode,
-  });
+  io.to(room.code).emit('game-over', { winner, loser, punishmentMode: room.punishmentMode });
 }
 
 function handleElimination(room, result) {
   if (!result.eliminated) return false;
   const eliminated = room.eliminatedPlayers[room.eliminatedPlayers.length - 1];
   if (eliminated) {
-    io.to(room.code).emit('player-eliminated', { playerId: eliminated.id, playerName: eliminated.name });
+    io.to(room.code).emit('player-eliminated', { playerId: eliminated.clientId, playerName: eliminated.name });
   }
   if (room.players.length === 1) {
     room.gameStarted = false;
-    emitGameOver(room, room.players[0]);
+    const survivor = room.players[0];
+    emitGameOver(room, { id: survivor.clientId, name: survivor.name });
     return true;
   }
   return false;
 }
 
+async function loadRoomIfNeeded(code) {
+  if (rooms.has(code)) return;
+  const saved = await loadRoomSettings(code);
+  if (saved) {
+    const room = new GameRoom(code);
+    room.segments = saved.segments;
+    room.totalRounds = saved.totalRounds === '∞' ? Infinity : Number(saved.totalRounds);
+    room.punishmentMode = saved.punishmentMode;
+    rooms.set(code, room);
+  }
+}
+
 io.on('connection', socket => {
   console.log('connected:', socket.id);
 
-  socket.on('create-room', async ({ playerName }) => {
+  // ── Create room ──
+  socket.on('create-room', async ({ clientId, playerName }) => {
     const code = roomCode();
     const room = new GameRoom(code);
     rooms.set(code, room);
-    room.addPlayer(socket.id, playerName);
+
+    socketToClient.set(socket.id, clientId);
+    clientToSocket.set(clientId, socket.id);
+    room.addPlayer(clientId, socket.id, playerName);
 
     await saveRoomSettings(room);
 
     socket.join(code);
     socket.data.roomCode = code;
-    socket.emit('room-joined', { roomCode: code, playerId: socket.id });
+    socket.emit('room-joined', { roomCode: code, playerId: clientId });
     io.to(code).emit('room-updated', room.getState());
     socket.emit('punishment-updated', room.getPunishmentState());
   });
 
-  socket.on('join-room', async ({ roomCode: roomCodeParam, playerName }) => {
+  // ── Join room ──
+  socket.on('join-room', async ({ clientId, roomCode: roomCodeParam, playerName }) => {
     const code = (roomCodeParam || '').toUpperCase().trim();
 
-    if (!rooms.has(code)) {
-      const saved = await loadRoomSettings(code);
-      if (saved) {
-        const room = new GameRoom(code);
-        room.segments = saved.segments;
-        room.totalRounds = saved.totalRounds === '∞' ? Infinity : Number(saved.totalRounds);
-        room.punishmentMode = saved.punishmentMode;
-        rooms.set(code, room);
-      }
-    }
+    await loadRoomIfNeeded(code);
 
     const room = rooms.get(code);
     if (!room) return socket.emit('error', { message: 'الغرفة غير موجودة أو انتهت صلاحيتها' });
+
+    // If this clientId is already in the room (e.g. lobby refresh), reconnect them
+    const existing = room.players.find(p => p.clientId === clientId);
+    if (existing) {
+      const timerKey = `${code}:${clientId}`;
+      const timer = disconnectTimers.get(timerKey);
+      if (timer) { clearTimeout(timer); disconnectTimers.delete(timerKey); }
+
+      socketToClient.set(socket.id, clientId);
+      clientToSocket.set(clientId, socket.id);
+      room.reconnectPlayer(clientId, socket.id);
+      socket.join(code);
+      socket.data.roomCode = code;
+      socket.emit('room-joined', { roomCode: code, playerId: clientId });
+      socket.emit('punishment-updated', room.getPunishmentState());
+      io.to(code).emit('room-updated', room.getState());
+      await refreshRoom(code);
+      return;
+    }
+
     if (room.gameStarted) return socket.emit('error', { message: 'اللعبة بدأت بالفعل' });
     if (room.players.length >= 4) return socket.emit('error', { message: 'الغرفة ممتلئة (4 لاعبين)' });
 
-    await refreshRoom(code);
-
-    room.addPlayer(socket.id, playerName);
+    socketToClient.set(socket.id, clientId);
+    clientToSocket.set(clientId, socket.id);
+    room.addPlayer(clientId, socket.id, playerName);
     socket.join(code);
     socket.data.roomCode = code;
-    socket.emit('room-joined', { roomCode: code, playerId: socket.id });
+
+    await refreshRoom(code);
+
+    socket.emit('room-joined', { roomCode: code, playerId: clientId });
     io.to(code).emit('room-updated', room.getState());
     socket.emit('punishment-updated', room.getPunishmentState());
   });
 
+  // ── Rejoin room (page reload / reconnect) ──
+  socket.on('rejoin-room', async ({ clientId, roomCode: roomCodeParam, playerName }) => {
+    const code = (roomCodeParam || '').toUpperCase().trim();
+    if (!code) return;
+
+    await loadRoomIfNeeded(code);
+
+    const room = rooms.get(code);
+    if (!room) {
+      socket.emit('rejoin-failed', { reason: 'الغرفة غير موجودة' });
+      return;
+    }
+
+    const existingPlayer = room.players.find(p => p.clientId === clientId);
+    if (!existingPlayer) {
+      socket.emit('rejoin-failed', { reason: 'لست في هذه الغرفة' });
+      return;
+    }
+
+    // Cancel grace-period timer
+    const timerKey = `${code}:${clientId}`;
+    const timer = disconnectTimers.get(timerKey);
+    if (timer) { clearTimeout(timer); disconnectTimers.delete(timerKey); }
+
+    socketToClient.set(socket.id, clientId);
+    clientToSocket.set(clientId, socket.id);
+    room.reconnectPlayer(clientId, socket.id);
+
+    socket.join(code);
+    socket.data.roomCode = code;
+
+    socket.emit('room-joined', { roomCode: code, playerId: clientId });
+    socket.emit('punishment-updated', room.getPunishmentState());
+
+    if (room.gameStarted) {
+      socket.emit('game-started');
+      const base = room.getGameState();
+      socket.emit('game-state', { ...base, myHand: existingPlayer.hand });
+    } else {
+      io.to(code).emit('room-updated', room.getState());
+    }
+
+    await refreshRoom(code);
+  });
+
+  // ── Start game ──
   socket.on('start-game', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    if (room.players[0]?.id !== socket.id)
+    const clientId = cid(socket);
+    if (room.hostClientId !== clientId)
       return socket.emit('error', { message: 'فقط المضيف يمكنه البدء' });
-    if (room.players.length < 2)
+    if (room.players.filter(p => p.connected).length < 2)
       return socket.emit('error', { message: 'تحتاج لاعبين على الأقل' });
     const startResult = room.startGame();
     if (startResult?.error) return socket.emit('error', { message: startResult.error });
@@ -154,7 +236,7 @@ io.on('connection', socket => {
   socket.on('set-punishment-mode', async ({ enabled }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const r = room.setPunishmentMode(socket.id, enabled);
+    const r = room.setPunishmentMode(cid(socket), enabled);
     if (r.error) return socket.emit('error', { message: r.error });
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
     await saveRoomSettings(room);
@@ -163,7 +245,7 @@ io.on('connection', socket => {
   socket.on('set-segments', async ({ segments }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const r = room.setSegments(socket.id, segments);
+    const r = room.setSegments(cid(socket), segments);
     if (r.error) return socket.emit('error', { message: r.error });
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
     await saveRoomSettings(room);
@@ -172,14 +254,14 @@ io.on('connection', socket => {
   socket.on('approve-punishment', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    room.approvePunishment(socket.id);
+    room.approvePunishment(cid(socket));
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
   });
 
   socket.on('spin-wheel', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.spinWheel(socket.id);
+    const result = room.spinWheel(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
     io.to(room.code).emit('wheel-result', result);
   });
@@ -187,11 +269,9 @@ io.on('connection', socket => {
   socket.on('set-rounds', async ({ rounds }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.setRounds(socket.id, rounds);
+    const result = room.setRounds(cid(socket), rounds);
     if (result.error) return socket.emit('error', { message: result.error });
-    io.to(room.code).emit('rounds-updated', {
-      totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
-    });
+    io.to(room.code).emit('rounds-updated', { totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds });
     io.to(room.code).emit('room-updated', room.getState());
     await saveRoomSettings(room);
   });
@@ -199,32 +279,30 @@ io.on('connection', socket => {
   socket.on('start-next-round', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.startNextRound(socket.id);
+    const result = room.startNextRound(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
     io.to(room.code).emit('round-started', { currentRound: room.currentRound });
     broadcastGameState(room);
   });
 
+  // ── Game events ──
   socket.on('play-card', ({ cardIndex, chosenColor }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.playCard(socket.id, cardIndex, chosenColor);
+    const clientId = cid(socket);
+    const result = room.playCard(clientId, cardIndex, chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
-    io.to(room.code).emit('card-played', { playerId: socket.id, card: result.card });
+    io.to(room.code).emit('card-played', { playerId: clientId, card: result.card });
     if (result.roundOver) {
       io.to(room.code).emit('round-over', {
-        roundWinner:  result.roundWinner,
-        scores:       result.scores,
-        currentRound: result.currentRound,
-        totalRounds:  result.totalRounds,
+        roundWinner: result.roundWinner, scores: result.scores,
+        currentRound: result.currentRound, totalRounds: result.totalRounds,
       });
       broadcastGameState(room);
     } else if (result.gameOver) {
       io.to(room.code).emit('game-over', {
-        winner:         result.winner,
-        loser:          result.loser,
-        punishmentMode: room.punishmentMode,
-        scores:         result.scores,
+        winner: result.winner, loser: result.loser,
+        punishmentMode: room.punishmentMode, scores: result.scores,
       });
     } else {
       broadcastGameState(room);
@@ -234,7 +312,7 @@ io.on('connection', socket => {
   socket.on('draw-card', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.drawCard(socket.id);
+    const result = room.drawCard(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
     if (!handleElimination(room, result)) broadcastGameState(room);
   });
@@ -242,7 +320,7 @@ io.on('connection', socket => {
   socket.on('pass-turn', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.passTurn(socket.id);
+    const result = room.passTurn(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
     broadcastGameState(room);
   });
@@ -250,17 +328,18 @@ io.on('connection', socket => {
   socket.on('call-uno', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.callUno(socket.id);
+    const clientId = cid(socket);
+    const result = room.callUno(clientId);
     if (result.error) return socket.emit('error', { message: result.error });
-    const player = room.players.find(p => p.id === socket.id);
-    io.to(room.code).emit('uno-called', { playerId: socket.id, playerName: player?.name });
+    const player = room.players.find(p => p.clientId === clientId);
+    io.to(room.code).emit('uno-called', { playerId: clientId, playerName: player?.name });
     broadcastGameState(room);
   });
 
   socket.on('catch-uno', ({ targetId }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.catchUno(socket.id, targetId);
+    const result = room.catchUno(cid(socket), targetId);
     if (result.error) return socket.emit('error', { message: result.error });
     io.to(room.code).emit('uno-caught', { targetName: result.targetName });
     broadcastGameState(room);
@@ -269,9 +348,10 @@ io.on('connection', socket => {
   socket.on('jump-in', ({ cardIndex }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.jumpIn(socket.id, cardIndex);
+    const clientId = cid(socket);
+    const result = room.jumpIn(clientId, cardIndex);
     if (result.error) return socket.emit('error', { message: result.error });
-    io.to(room.code).emit('card-played', { playerId: socket.id, card: result.card, jumpIn: true });
+    io.to(room.code).emit('card-played', { playerId: clientId, card: result.card, jumpIn: true });
     if (result.gameOver) {
       io.to(room.code).emit('game-over', { winner: result.winner });
     } else {
@@ -279,19 +359,20 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('seven-swap', ({ targetPlayerId }) => {
+  socket.on('seven-swap', ({ targetPlayerId: targetClientId }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.sevenSwap(socket.id, targetPlayerId);
+    const clientId = cid(socket);
+    const result = room.sevenSwap(clientId, targetClientId);
     if (result.error) return socket.emit('error', { message: result.error });
-    io.to(room.code).emit('seven-swapped', { fromId: socket.id, toId: targetPlayerId });
+    io.to(room.code).emit('seven-swapped', { fromId: clientId, toId: targetClientId });
     broadcastGameState(room);
   });
 
   socket.on('color-roulette-pick', ({ chosenColor }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.colorRoulettePick(socket.id, chosenColor);
+    const result = room.colorRoulettePick(cid(socket), chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
     broadcastGameState(room);
   });
@@ -299,16 +380,17 @@ io.on('connection', socket => {
   socket.on('roulette-draw', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.rouletteDraw(socket.id);
+    const result = room.rouletteDraw(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
     if (result.found) io.to(room.code).emit('roulette-resolved', { drew: 1 });
     if (!handleElimination(room, result)) broadcastGameState(room);
   });
 
+  // ── Room management ──
   socket.on('restart-game', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const result = room.restartGame(socket.id);
+    const result = room.restartGame(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
     io.to(room.code).emit('game-restarted', room.getState());
   });
@@ -316,7 +398,7 @@ io.on('connection', socket => {
   socket.on('grant-second-chance', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    if (room.lastWinner?.id !== socket.id) return socket.emit('error', { message: 'فقط الفائز يقدر يمنح فرصة' });
+    if (room.lastWinner?.id !== cid(socket)) return socket.emit('error', { message: 'فقط الفائز يقدر يمنح فرصة' });
     if (!room.lastLoserId) return socket.emit('error', { message: 'لا يوجد خسران' });
     room.currentSpinnerId = room.lastLoserId;
     room.currentSpinnerName = room.lastLoserName;
@@ -327,34 +409,63 @@ io.on('connection', socket => {
   socket.on('send-reaction', ({ emoji }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    const player = room.players.find(p => p.id === socket.id);
+    const clientId = cid(socket);
+    const player = room.players.find(p => p.clientId === clientId);
     if (!player) return;
-    io.to(room.code).emit('reaction', { playerId: socket.id, playerName: player.name, emoji });
+    io.to(room.code).emit('reaction', { playerId: clientId, playerName: player.name, emoji });
   });
 
-  socket.on('kick-player', ({ targetId }) => {
+  socket.on('kick-player', ({ targetId: targetClientId }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;
-    if (room.players[0]?.id !== socket.id) return socket.emit('error', { message: 'فقط المضيف' });
-    const target = room.players.find(p => p.id === targetId);
+    if (room.hostClientId !== cid(socket)) return socket.emit('error', { message: 'فقط المضيف' });
+
+    const target = room.players.find(p => p.clientId === targetClientId);
     if (!target) return;
-    room.removePlayer(targetId);
-    io.to(targetId).emit('kicked');
+
+    const targetSocketId = target.id;
+
+    // Cancel any pending disconnect timer
+    const timerKey = `${room.code}:${targetClientId}`;
+    const timer = disconnectTimers.get(timerKey);
+    if (timer) { clearTimeout(timer); disconnectTimers.delete(timerKey); }
+    clientToSocket.delete(targetClientId);
+
+    room.removePlayer(targetClientId);
+    if (targetSocketId) io.to(targetSocketId).emit('kicked');
     io.to(room.code).emit('room-updated', room.getState());
   });
 
+  // ── Disconnect (with 30s grace period) ──
   socket.on('disconnect', async () => {
     const code = socket.data.roomCode;
+    const clientId = socketToClient.get(socket.id);
+    socketToClient.delete(socket.id);
+
     const room = rooms.get(code);
-    if (!room) return;
-    room.removePlayer(socket.id);
-    if (room.players.length === 0) {
-      await saveRoomSettings(room); // keep settings in Redis for 24h
-      rooms.delete(code);
-    } else {
-      io.to(code).emit('room-updated', room.getState());
-      if (room.gameStarted) broadcastGameState(room);
-    }
+    if (!room || !clientId) return;
+
+    room.disconnectPlayer(clientId);
+    io.to(code).emit('room-updated', room.getState());
+    if (room.gameStarted) broadcastGameState(room);
+
+    const timerKey = `${code}:${clientId}`;
+    disconnectTimers.set(timerKey, setTimeout(async () => {
+      disconnectTimers.delete(timerKey);
+      clientToSocket.delete(clientId);
+
+      const r = rooms.get(code);
+      if (!r) return;
+      r.removePlayer(clientId);
+
+      if (r.players.length === 0) {
+        await saveRoomSettings(r);
+        rooms.delete(code);
+      } else {
+        io.to(code).emit('room-updated', r.getState());
+        if (r.gameStarted) broadcastGameState(r);
+      }
+    }, 30000));
   });
 });
 
