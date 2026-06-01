@@ -791,6 +791,17 @@ class GameRoom {
     console.log(`[Starting Round ${this.currentRound}/${this.totalRounds}]`);
     return { ok: true };
   }
+
+  restartGame(playerId) {
+    if (this.players[0]?.id !== playerId) return { error: 'فقط المضيف' };
+    this.currentRound = 1;
+    this.scores = {};
+    this.eliminatedPlayers = [];
+    this.gameStarted = false;
+    this.waitingForNextRound = false;
+    this.punishmentApprovals = new Set();
+    return { ok: true };
+  }
 }
 
 module.exports = GameRoom;

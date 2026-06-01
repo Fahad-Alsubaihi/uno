@@ -79,6 +79,7 @@ function FireworkBurst({ cx, cy, delay }) {
 
 export function WinnerScreen({ socket }) {
   const { winner, loser, playerId, reset, punishment, showWheel, wheelResult, setShowWheel, finalScores, roomPlayers } = useGameStore();
+  const isHost = roomPlayers[0]?.id === playerId;
   const game = useGame(socket);
   const sound = useSound();
   const isWinner = winner?.id === playerId;
@@ -244,21 +245,39 @@ export function WinnerScreen({ socket }) {
         )}
 
         <div style={{ height: 20 }} />
-        <motion.button
-          whileHover={{ scale: 1.06, boxShadow: '0 0 36px rgba(244,63,94,0.8), 0 10px 28px rgba(0,0,0,0.35)' }}
-          whileTap={{ scale: 0.94 }}
-          onClick={reset}
-          style={{
-            background: 'linear-gradient(135deg, #F43F5E, #BE123C)',
-            border: '1px solid rgba(251,113,133,0.3)',
-            borderRadius: 16, padding: '18px 52px',
-            fontFamily: 'var(--font-head)', fontSize: 17, color: '#fff',
-            cursor: 'pointer', letterSpacing: 2,
-            boxShadow: '0 0 24px rgba(244,63,94,0.5), 0 8px 24px rgba(0,0,0,0.35)',
-          }}
-        >
-          العب مجدداً
-        </motion.button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 320 }}>
+          {isHost && (
+            <motion.button
+              whileHover={{ scale: 1.04, boxShadow: '0 0 36px rgba(244,63,94,0.8)' }}
+              whileTap={{ scale: 0.94 }}
+              onClick={() => game.restartGame()}
+              style={{
+                background: 'linear-gradient(135deg, #F43F5E, #BE123C)',
+                border: '1px solid rgba(251,113,133,0.3)',
+                borderRadius: 16, padding: '17px',
+                fontFamily: 'var(--font-head)', fontSize: 16, color: '#fff',
+                cursor: 'pointer', letterSpacing: 2,
+                boxShadow: '0 0 24px rgba(244,63,94,0.5)',
+              }}
+            >
+              العب مجدداً 🔄
+            </motion.button>
+          )}
+          <motion.button
+            whileHover={{ opacity: 0.8 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={reset}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 14, padding: '14px',
+              fontFamily: 'var(--font-head)', fontSize: 14, color: '#475569',
+              cursor: 'pointer', letterSpacing: 2,
+            }}
+          >
+            مغادرة الغرفة
+          </motion.button>
+        </div>
       </motion.div>
 
       <PunishmentWheel

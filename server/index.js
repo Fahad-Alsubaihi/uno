@@ -305,6 +305,14 @@ io.on('connection', socket => {
     if (!handleElimination(room, result)) broadcastGameState(room);
   });
 
+  socket.on('restart-game', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const result = room.restartGame(socket.id);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('game-restarted', room.getState());
+  });
+
   socket.on('disconnect', async () => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);

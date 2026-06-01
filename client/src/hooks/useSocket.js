@@ -80,6 +80,16 @@ export function useSocket() {
       }
     });
 
+    on('game-restarted', (state) => {
+      ref.current.setScreen('lobby');
+      ref.current.setGameState(null);
+      ref.current.setWinner(null);
+      ref.current.setLoser(null);
+      ref.current.setRoundResult(null);
+      ref.current.setFinalScores(null);
+      ref.current.setRoomPlayers(state.players);
+    });
+
     on('punishment-updated', (data) => ref.current.setPunishment(data));
 
     on('wheel-result', (result) => {
@@ -95,7 +105,7 @@ export function useSocket() {
       ['room-joined','room-updated','game-started','game-state','game-over',
        'player-eliminated','uno-called','uno-caught','seven-swapped',
        'roulette-resolved','card-played','punishment-updated','wheel-result',
-       'round-over','round-started','rounds-updated','error',
+       'round-over','round-started','rounds-updated','game-restarted','error',
       ].forEach(ev => socket.off(ev));
     };
   }, []);

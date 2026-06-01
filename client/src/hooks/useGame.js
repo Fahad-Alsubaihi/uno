@@ -20,11 +20,12 @@ export function useGame(socket) {
   const spinWheel         = useCallback(()     => socket.emit('spin-wheel'), [socket]);
   const setRounds         = useCallback((n)    => socket.emit('set-rounds',          { rounds: n }), [socket]);
   const startNextRound    = useCallback(()     => socket.emit('start-next-round'), [socket]);
+  const restartGame       = useCallback(()     => socket.emit('restart-game'), [socket]);
 
   return {
     createRoom, joinRoom, startGame, playCard, drawCard, passTurn,
     callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw,
     setPunishmentMode, setSegments, approvePunishment, spinWheel,
-    setRounds, startNextRound,
+    setRounds, startNextRound, restartGame,
   };
 }
