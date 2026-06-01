@@ -313,6 +313,25 @@ io.on('connection', socket => {
     io.to(room.code).emit('game-restarted', room.getState());
   });
 
+  socket.on('grant-second-chance', () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    if (room.lastWinner?.id !== socket.id) return socket.emit('error', { message: 'فقط الفائز يقدر يمنح فرصة' });
+    if (!room.lastLoserId) return socket.emit('error', { message: 'لا يوجد خسران' });
+    room.currentSpinnerId = room.lastLoserId;
+    room.currentSpinnerName = room.lastLoserName;
+    room.wheelRetryCount = 0;
+    io.to(room.code).emit('second-chance-granted', { loserName: room.lastLoserName });
+  });
+
+  socket.on('send-reaction', ({ emoji }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+    io.to(room.code).emit('reaction', { playerId: socket.id, playerName: player.name, emoji });
+  });
+
   socket.on('kick-player', ({ targetId }) => {
     const room = rooms.get(socket.data.roomCode);
     if (!room) return;

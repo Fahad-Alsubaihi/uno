@@ -284,10 +284,12 @@ export function WinnerScreen({ socket }) {
         open={showWheel}
         wheelResult={wheelResult}
         loser={loser}
+        winner={winner}
         playerId={playerId}
         segments={punishment?.segments || []}
         onSpin={() => game.spinWheel()}
         onClose={() => setShowWheel(false)}
+        onGrantSecondChance={() => game.grantSecondChance()}
       />
     </div>
   );

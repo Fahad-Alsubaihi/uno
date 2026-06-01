@@ -97,7 +97,7 @@ const RESULT_STYLE = {
   reverse: { bg: '#1E3A8A', border: '#3B82F6', glow: 'rgba(37,99,235,0.5)',  label: '🔄 تنقلب على الفائز' },
 };
 
-export function PunishmentWheel({ open, segments = [], wheelResult, loser, winner, playerId, onSpin, onClose }) {
+export function PunishmentWheel({ open, segments = [], wheelResult, loser, winner, playerId, onSpin, onClose, onGrantSecondChance }) {
   const [spinTo, setSpinTo]     = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -125,8 +125,9 @@ export function PunishmentWheel({ open, segments = [], wheelResult, loser, winne
     }
   }, [open]);
 
-  const isLoser = loser?.id === playerId;
-  const rs      = wheelResult ? RESULT_STYLE[wheelResult.type] : null;
+  const isLoser  = loser?.id === playerId;
+  const isWinner = winner?.id === playerId;
+  const rs       = wheelResult ? RESULT_STYLE[wheelResult.type] : null;
 
   return (
     <AnimatePresence>
@@ -289,29 +290,52 @@ export function PunishmentWheel({ open, segments = [], wheelResult, loser, winne
             {revealed && wheelResult && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                style={{ display: 'flex', gap: 10, justifyContent: 'center', flexShrink: 0 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', flexShrink: 0, width: '100%', maxWidth: 340 }}
               >
+                {/* retry: الخسران يدور مرة أخرى */}
                 {wheelResult.type === 'retry' && isLoser && (
                   <motion.button
                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => { setRevealed(false); onSpin(); }}
                     style={{
-                      background: '#7C3AED', border: 'none', borderRadius: 10,
-                      padding: '10px 26px', color: '#fff',
-                      fontFamily: 'var(--font-head)', fontSize: 14, cursor: 'pointer', letterSpacing: 1,
+                      width: '100%', background: '#7C3AED', border: 'none', borderRadius: 10,
+                      padding: '12px', color: '#fff',
+                      fontFamily: 'var(--font-head)', fontSize: 15, cursor: 'pointer', letterSpacing: 1,
                     }}
                   >
                     🍀 أدر مرة أخرى
                   </motion.button>
                 )}
+
+                {/* execute/reverse: الفائز يقدر يمنح فرصة ثانية */}
+                {wheelResult.type !== 'retry' && isWinner && (
+                  <motion.button
+                    whileHover={{ scale: 1.04, boxShadow: '0 0 20px rgba(34,197,94,0.5)' }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onGrantSecondChance}
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(135deg, rgba(34,197,94,0.25), rgba(22,163,74,0.2))',
+                      border: '1px solid rgba(34,197,94,0.5)',
+                      borderRadius: 10, padding: '12px', color: '#22C55E',
+                      fontFamily: 'var(--font-head)', fontSize: 14, cursor: 'pointer', letterSpacing: 1,
+                      boxShadow: '0 0 12px rgba(34,197,94,0.2)',
+                    }}
+                  >
+                    🎁 امنح {loser?.name} فرصة ثانية
+                  </motion.button>
+                )}
+
+                {/* إغلاق — دائماً */}
                 {wheelResult.type !== 'retry' && (
                   <motion.button
                     whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                     onClick={onClose}
                     style={{
+                      width: '100%',
                       background: 'rgba(255,255,255,0.07)',
                       border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: 10, padding: '10px 26px', color: '#94A3B8',
+                      borderRadius: 10, padding: '10px', color: '#94A3B8',
                       fontFamily: 'var(--font-head)', fontSize: 14, cursor: 'pointer', letterSpacing: 1,
                     }}
                   >

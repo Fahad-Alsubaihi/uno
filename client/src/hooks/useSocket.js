@@ -3,6 +3,8 @@ import { io } from 'socket.io-client';
 import { useGameStore } from '../store/gameStore';
 
 let _socket = null;
+const _reactionTimers = {};
+
 function getSocket() {
   if (!_socket) _socket = io(window.location.origin, { transports: ['websocket', 'polling'] });
   return _socket;
@@ -93,6 +95,20 @@ export function useSocket() {
       ref.current.setScreen('lobby');
     });
 
+    on('second-chance-granted', ({ loserName }) => {
+      ref.current.setWheelResult(null);
+      ref.current.setNotification({ type: 'chance', text: `🎲 ${loserName} حصل على فرصة ثانية!` });
+      setTimeout(() => ref.current.setNotification(null), 2500);
+    });
+
+    on('reaction', ({ playerId, emoji }) => {
+      if (_reactionTimers[playerId]) clearTimeout(_reactionTimers[playerId]);
+      ref.current.setReaction(playerId, emoji);
+      _reactionTimers[playerId] = setTimeout(() => {
+        ref.current.clearReaction(playerId);
+      }, 2500);
+    });
+
     on('kicked', () => {
       ref.current.reset();
       ref.current.setError('تم طردك من الغرفة');
@@ -114,7 +130,8 @@ export function useSocket() {
       ['room-joined','room-updated','game-started','game-state','game-over',
        'player-eliminated','uno-called','uno-caught','seven-swapped',
        'roulette-resolved','card-played','punishment-updated','wheel-result',
-       'round-over','round-started','rounds-updated','game-restarted','kicked','error',
+       'round-over','round-started','rounds-updated','game-restarted','kicked',
+       'reaction','second-chance-granted','error',
       ].forEach(ev => socket.off(ev));
     };
   }, []);

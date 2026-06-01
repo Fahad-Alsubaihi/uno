@@ -100,6 +100,8 @@ class GameRoom {
     this.currentSpinnerId = null;
     this.currentSpinnerName = null;
     this.lastWinner = null;
+    this.lastLoserId = null;
+    this.lastLoserName = null;
     this.totalRounds = 3;
     this.currentRound = 1;
     this.scores = {};
@@ -613,27 +615,33 @@ class GameRoom {
           const punishments = segs.filter(s => s.type === 'punishment');
           const forced = punishments[Math.floor(Math.random() * punishments.length)];
           this.wheelRetryCount = 0;
+          this.lastLoserId = this.currentSpinnerId;
+          this.lastLoserName = this.currentSpinnerName;
           this.currentSpinnerId = null;
-          return { type: 'execute', segment: forced, stopAngle, forced: true, loserName: this.currentSpinnerName };
+          return { type: 'execute', segment: forced, stopAngle, forced: true, loserName: this.lastLoserName };
         }
         return { type: 'retry', segment: chosen, stopAngle, retryCount: this.wheelRetryCount, loserName: this.currentSpinnerName };
       }
       if (chosen.text === 'reverse') {
         const punishments = segs.filter(s => s.type === 'punishment');
         const punished = punishments[Math.floor(Math.random() * punishments.length)];
+        this.lastLoserId = this.currentSpinnerId;
+        this.lastLoserName = this.currentSpinnerName;
         this.currentSpinnerId = null;
         return {
           type: 'reverse', segment: chosen, stopAngle,
           punishment: punished?.text || 'عقوبة',
           winnerName: this.lastWinner?.name,
-          loserName: this.currentSpinnerName,
+          loserName: this.lastLoserName,
         };
       }
     }
 
     this.wheelRetryCount = 0;
+    this.lastLoserId = this.currentSpinnerId;
+    this.lastLoserName = this.currentSpinnerName;
     this.currentSpinnerId = null;
-    return { type: 'execute', segment: chosen, stopAngle, loserName: this.currentSpinnerName };
+    return { type: 'execute', segment: chosen, stopAngle, loserName: this.lastLoserName };
   }
 
   getPunishmentState() {
@@ -691,57 +699,75 @@ class GameRoom {
   _calcRoundScore(hand) {
     return hand.reduce((sum, card) => {
       if (card.type === 'number') return sum + Number(card.value);
-      if (card.color === 'wild')  return sum + 50;
-      return sum + 20;
+      if (card.color === 'wild')  return sum + 50;  // wild-draw-six, wild-draw-ten, wild-reverse-draw-four, wild-color-roulette
+      return sum + 20;                               // skip, reverse, draw-two, skip-all, discard-all
     }, 0);
   }
 
   _handleWin(player) {
-    const winner = { id: player.id, name: player.name };
-    const loser = this.players
-      .filter(p => p.id !== player.id)
-      .sort((a, b) => b.hand.length - a.hand.length)[0];
+    const roundWinner = { id: player.id, name: player.name };
+    const allPlayers = [...this.players, ...this.eliminatedPlayers];
 
+    // Score this round for the round winner
     for (const p of this.players) {
-      if (p.id === winner.id) continue;
-      this.scores[winner.id] = (this.scores[winner.id] || 0) + this._calcRoundScore(p.hand);
+      if (p.id === roundWinner.id) continue;
+      this.scores[roundWinner.id] = (this.scores[roundWinner.id] || 0) + this._calcRoundScore(p.hand);
     }
     for (const e of this.eliminatedPlayers) {
-      this.scores[winner.id] = (this.scores[winner.id] || 0) + 250;
+      this.scores[roundWinner.id] = (this.scores[roundWinner.id] || 0) + 250;
     }
 
-    console.log(`[Round ${this.currentRound}/${this.totalRounds}] Winner: ${winner.name}, Scores:`, this.scores);
+    console.log(`[Round ${this.currentRound}/${this.totalRounds}] RoundWinner: ${roundWinner.name}, Scores:`, this.scores);
 
+    // Game ends: last round by count OR any player reaches 1000 points
     const isLastRound = this.totalRounds !== Infinity && this.currentRound >= this.totalRounds;
+    const hasReachedLimit = Object.values(this.scores).some(s => s >= 1000);
 
-    if (!isLastRound) {
+    if (!isLastRound && !hasReachedLimit) {
       this.waitingForNextRound = true;
       return {
         roundOver: true,
-        roundWinner: winner,
+        roundWinner,
         scores: { ...this.scores },
         currentRound: this.currentRound,
-        totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
-      };
-    } else {
-      this.gameStarted = false;
-      if (this.punishmentMode && loser) {
-        this.currentSpinnerId = loser.id;
-        this.currentSpinnerName = loser.name;
-        this.lastWinner = winner;
-        this.wheelRetryCount = 0;
-        this.wheelCumAngle = 0;
-      }
-      return {
-        gameOver: true,
-        finalRound: true,
-        winner,
-        loser: loser ? { id: loser.id, name: loser.name } : null,
-        scores: { ...this.scores },
-        currentRound: this.currentRound,
-        totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
+        totalRounds: this.totalRounds,
       };
     }
+
+    // Game over — winner = player with highest total score
+    let topScore = -1;
+    let gameWinnerId = roundWinner.id;
+    for (const p of allPlayers) {
+      const s = this.scores[p.id] || 0;
+      if (s > topScore) { topScore = s; gameWinnerId = p.id; }
+    }
+    const gameWinnerPlayer = allPlayers.find(p => p.id === gameWinnerId);
+    const gameWinner = { id: gameWinnerId, name: gameWinnerPlayer?.name || roundWinner.name };
+
+    // Loser = active player with fewest points (for punishment wheel)
+    const loserPlayer = [...this.players]
+      .filter(p => p.id !== gameWinnerId)
+      .sort((a, b) => (this.scores[a.id] || 0) - (this.scores[b.id] || 0))[0];
+    const gameLoser = loserPlayer ? { id: loserPlayer.id, name: loserPlayer.name } : null;
+
+    this.gameStarted = false;
+    if (this.punishmentMode && gameLoser) {
+      this.currentSpinnerId = gameLoser.id;
+      this.currentSpinnerName = gameLoser.name;
+      this.lastWinner = gameWinner;
+      this.wheelRetryCount = 0;
+      this.wheelCumAngle = 0;
+    }
+
+    return {
+      gameOver: true,
+      finalRound: true,
+      winner: gameWinner,
+      loser: gameLoser,
+      scores: { ...this.scores },
+      currentRound: this.currentRound,
+      totalRounds: this.totalRounds,
+    };
   }
 
   _startNewRound() {
@@ -800,6 +826,13 @@ class GameRoom {
     this.gameStarted = false;
     this.waitingForNextRound = false;
     this.punishmentApprovals = new Set();
+    this.currentSpinnerId = null;
+    this.currentSpinnerName = null;
+    this.lastLoserId = null;
+    this.lastLoserName = null;
+    this.lastWinner = null;
+    this.wheelRetryCount = 0;
+    this.wheelCumAngle = 0;
     return { ok: true };
   }
 }

@@ -26,15 +26,19 @@ const COLOR_META = {
   wild:   { hex: '#7C3AED', glow: '#A78BFA', label: 'وايلد' },
 };
 
+const EMOJIS = ['😂', '😤', '🔥', '💀', '😱', '👏', '🤡', '😈'];
+
 export function GameScreen({ socket }) {
-  const { gameState, playerId, error, notification, roundResult, roomPlayers, setRoundResult } = useGameStore();
-  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound } = useGame(socket);
+  const { gameState, playerId, error, notification, roundResult, roomPlayers, setRoundResult, reactions } = useGameStore();
+  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction } = useGame(socket);
   const sound = useSound();
 
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [pendingCardIndex, setPendingCardIndex] = useState(null);
   const [swapOpen, setSwapOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [reactionText, setReactionText] = useState('');
 
   useEffect(() => {
     if (gameState?.pendingSevenSwap && gameState?.pendingSevenPlayerId === playerId) {
@@ -128,7 +132,7 @@ export function GameScreen({ socket }) {
         padding: '0 12px', height: 50, flexShrink: 0,
         background: 'rgba(0,0,0,0.4)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
-        gap: 8,
+        gap: 8, position: 'relative',
       }}>
         {/* Brand */}
         <div style={{ fontFamily: 'var(--font-head)', fontSize: 13, color: '#F43F5E', letterSpacing: 2, flexShrink: 0 }}>
@@ -154,6 +158,120 @@ export function GameScreen({ socket }) {
         >
           ?
         </motion.button>
+
+        {/* Emoji reaction button */}
+        <motion.button
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setEmojiOpen(v => !v)}
+          style={{
+            width: 26, height: 26, borderRadius: '50%',
+            background: emojiOpen ? 'rgba(124,58,237,0.35)' : 'rgba(124,58,237,0.15)',
+            border: `1px solid ${emojiOpen ? 'rgba(124,58,237,0.8)' : 'rgba(124,58,237,0.4)'}`,
+            fontSize: 13, cursor: 'pointer', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            lineHeight: 1,
+          }}
+        >
+          😊
+        </motion.button>
+
+        {/* Emoji + text picker dropdown */}
+        <AnimatePresence>
+          {emojiOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.92 }}
+              transition={{ duration: 0.14 }}
+              style={{
+                position: 'absolute', top: 54, left: 8,
+                background: 'rgba(14,10,40,0.97)',
+                border: '1px solid rgba(124,58,237,0.45)',
+                borderRadius: 14, padding: 8,
+                zIndex: 300,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                width: 176,
+              }}
+            >
+              {/* Emoji grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+                {EMOJIS.map(e => (
+                  <motion.button
+                    key={e}
+                    whileHover={{ scale: 1.25, background: 'rgba(124,58,237,0.2)' }}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => { sendReaction(e); setEmojiOpen(false); }}
+                    style={{
+                      background: 'transparent', border: 'none',
+                      fontSize: 22, cursor: 'pointer',
+                      width: 38, height: 38,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      borderRadius: 8,
+                    }}
+                  >
+                    {e}
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Divider */}
+              <div style={{
+                height: 1, margin: '8px 2px',
+                background: 'rgba(124,58,237,0.2)',
+              }} />
+
+              {/* Text input */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input
+                  autoFocus
+                  value={reactionText}
+                  onChange={e => setReactionText(e.target.value.slice(0, 24))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && reactionText.trim()) {
+                      sendReaction(reactionText.trim());
+                      setReactionText('');
+                      setEmojiOpen(false);
+                    }
+                    if (e.key === 'Escape') setEmojiOpen(false);
+                  }}
+                  placeholder="اكتب شي..."
+                  style={{
+                    flex: 1, background: 'rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(124,58,237,0.35)',
+                    borderRadius: 8, padding: '6px 8px',
+                    color: '#E2E8F0', fontSize: 12,
+                    fontFamily: 'var(--font-body)',
+                    outline: 'none', direction: 'rtl',
+                    minWidth: 0,
+                  }}
+                  onFocus={e => { e.target.style.borderColor = '#7C3AED'; }}
+                  onBlur={e => { e.target.style.borderColor = 'rgba(124,58,237,0.35)'; }}
+                />
+                <motion.button
+                  whileHover={reactionText.trim() ? { scale: 1.1 } : {}}
+                  whileTap={reactionText.trim() ? { scale: 0.9 } : {}}
+                  onClick={() => {
+                    if (!reactionText.trim()) return;
+                    sendReaction(reactionText.trim());
+                    setReactionText('');
+                    setEmojiOpen(false);
+                  }}
+                  style={{
+                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    background: reactionText.trim() ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${reactionText.trim() ? 'rgba(124,58,237,0.7)' : 'rgba(255,255,255,0.1)'}`,
+                    color: reactionText.trim() ? '#A78BFA' : '#475569',
+                    fontSize: 14, cursor: reactionText.trim() ? 'pointer' : 'default',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  ↑
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
@@ -226,6 +344,7 @@ export function GameScreen({ socket }) {
             isCurrentPlayer={gameState.currentPlayerId === opp.id}
             onCatchUno={catchUno}
             canCatch={true}
+            reaction={reactions[opp.id] || null}
           />
         ))}
       </div>
@@ -240,6 +359,31 @@ export function GameScreen({ socket }) {
         display: 'flex', justifyContent: 'center', alignItems: 'center',
         gap: 6, flexShrink: 0, padding: '2px 0',
       }}>
+        <AnimatePresence>
+          {reactions[playerId] && (
+            <motion.span
+              key={reactions[playerId]}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+              style={reactions[playerId].length <= 2
+                ? { fontSize: 18, filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.5))' }
+                : {
+                    fontSize: 10, color: '#E2E8F0',
+                    background: 'rgba(14,10,40,0.95)',
+                    border: '1px solid rgba(124,58,237,0.5)',
+                    borderRadius: 20, padding: '2px 8px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                    maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }
+              }
+            >
+              {reactions[playerId]}
+            </motion.span>
+          )}
+        </AnimatePresence>
         <span style={{ fontFamily: 'var(--font-head)', fontSize: 10, color: '#334155', letterSpacing: 2 }}>
           {myPlayer?.name || 'أنت'}
         </span>

@@ -9,7 +9,7 @@ const AVATAR_COLORS = [
 
 const AVATAR_GLOW = ['#EF4444', '#3B82F6', '#22C55E', '#F59E0B'];
 
-export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, playerIndex = 0 }) {
+export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, playerIndex = 0, reaction }) {
   const cards = Math.max(0, player.cardCount);
   const displayCount = Math.min(cards, 8);
   const avatarGradient = AVATAR_COLORS[playerIndex % 4];
@@ -53,6 +53,36 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
               pointerEvents: 'none',
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Reaction bubble */}
+      <AnimatePresence>
+        {reaction && (
+          <motion.div
+            key={reaction}
+            initial={{ scale: 0, opacity: 0, y: 6 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0, opacity: 0, y: -10 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+            style={{
+              position: 'absolute', top: reaction.length <= 2 ? -34 : -30,
+              left: '50%', transform: 'translateX(-50%)',
+              pointerEvents: 'none', zIndex: 20, whiteSpace: 'nowrap',
+              ...(reaction.length <= 2
+                ? { fontSize: 24, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.6))' }
+                : {
+                    fontSize: 10, color: '#E2E8F0',
+                    background: 'rgba(14,10,40,0.95)',
+                    border: '1px solid rgba(124,58,237,0.5)',
+                    borderRadius: 20, padding: '3px 9px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                    maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis',
+                  }),
+            }}
+          >
+            {reaction}
+          </motion.div>
         )}
       </AnimatePresence>
 
