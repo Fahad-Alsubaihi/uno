@@ -298,15 +298,7 @@ class GameRoom {
         break;
       case 'wild-reverse-draw-four':
         this.direction *= -1;
-        if (this.players.length === 2) {
-          this.pendingDraw = 0;
-          this.lastDrawValue = 0;
-          this._drawCards(player, 4);
-          this._checkMercyRule(player);
-          this._advanceTurn(1);
-        } else {
-          this._advanceTurn(1);
-        }
+        this._advanceTurn(1);
         break;
       case 'discard-all': {
         const col = card.color;
@@ -737,9 +729,23 @@ class GameRoom {
 
   restartGame(clientId) {
     if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
+
+    // Restore all eliminated players back into the room
+    for (const ep of this.eliminatedPlayers) {
+      if (!this.players.find(p => p.clientId === ep.clientId)) {
+        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: ep.connected ?? true });
+      }
+    }
+    // Ensure host stays at index 0
+    this.players.sort((a, b) => {
+      if (a.clientId === this.hostClientId) return -1;
+      if (b.clientId === this.hostClientId) return 1;
+      return 0;
+    });
+
+    this.eliminatedPlayers = [];
     this.currentRound = 1;
     this.scores = {};
-    this.eliminatedPlayers = [];
     this.gameStarted = false;
     this.waitingForNextRound = false;
     this.punishmentApprovals = new Set();
@@ -758,8 +764,9 @@ class GameRoom {
   getState() {
     return {
       code: this.code,
+      hostId: this.hostClientId,
       players: this.players.map(p => ({
-        id: p.clientId,    // clientId exposed as id to clients
+        id: p.clientId,
         name: p.name,
         cardCount: p.hand.length,
         unoCalled: p.unoCalled,

@@ -79,8 +79,8 @@ function FireworkBurst({ cx, cy, delay }) {
 }
 
 export function WinnerScreen({ socket }) {
-  const { winner, loser, playerId, reset, punishment, showWheel, wheelResult, setShowWheel, finalScores, roomPlayers } = useGameStore();
-  const isHost = roomPlayers[0]?.id === playerId;
+  const { winner, loser, playerId, hostId, reset, punishment, showWheel, wheelResult, setShowWheel, finalScores, roomPlayers } = useGameStore();
+  const isHost = hostId ? hostId === playerId : roomPlayers[0]?.id === playerId;
   const game = useGame(socket);
   const sound = useSound();
   const isWinner = winner?.id === playerId;

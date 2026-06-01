@@ -185,10 +185,21 @@ io.on('connection', socket => {
       return;
     }
 
-    const existingPlayer = room.players.find(p => p.clientId === clientId);
+    // Check active players AND eliminated players
+    const existingPlayer =
+      room.players.find(p => p.clientId === clientId) ||
+      room.eliminatedPlayers.find(p => p.clientId === clientId);
+
     if (!existingPlayer) {
       socket.emit('rejoin-failed', { reason: 'لست في هذه الغرفة' });
       return;
+    }
+
+    // If eliminated, restore them to active players before reconnecting
+    const isEliminated = !room.players.find(p => p.clientId === clientId);
+    if (isEliminated) {
+      room.players.push({ clientId: existingPlayer.clientId, id: existingPlayer.id, name: existingPlayer.name, hand: [], unoCalled: false, connected: false });
+      room.eliminatedPlayers = room.eliminatedPlayers.filter(p => p.clientId !== clientId);
     }
 
     // Cancel grace-period timer

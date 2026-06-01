@@ -29,7 +29,7 @@ const COLOR_META = {
 const EMOJIS = ['😂', '😤', '🔥', '💀', '😱', '👏', '🤡', '😈'];
 
 export function GameScreen({ socket }) {
-  const { gameState, playerId, error, notification, roundResult, roomPlayers, setRoundResult, reactions } = useGameStore();
+  const { gameState, playerId, hostId, error, notification, roundResult, roomPlayers, setRoundResult, reactions } = useGameStore();
   const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction } = useGame(socket);
   const sound = useSound();
 
@@ -122,7 +122,7 @@ export function GameScreen({ socket }) {
         result={roundResult}
         roomPlayers={roomPlayers}
         playerId={playerId}
-        isHost={roomPlayers[0]?.id === playerId}
+        isHost={hostId ? hostId === playerId : roomPlayers[0]?.id === playerId}
         onNextRound={() => { startNextRound(); setRoundResult(null); }}
       />
 

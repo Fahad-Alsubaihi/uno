@@ -28,6 +28,7 @@ export const useGameStore = create((set) => ({
   totalRounds: 3,
   finalScores: null,
   reactions: {},
+  hostId: null,
 
   punishment: {
     enabled: false,
@@ -57,6 +58,7 @@ export const useGameStore = create((set) => ({
   setFinalScores:  (finalScores)  => set({ finalScores }),
   setReaction:    (playerId, emoji) => set(s => ({ reactions: { ...s.reactions, [playerId]: emoji } })),
   clearReaction:  (playerId)       => set(s => { const r = { ...s.reactions }; delete r[playerId]; return { reactions: r }; }),
+  setHostId:      (hostId)         => set({ hostId }),
 
   reset: () => set({
     screen: 'home',
@@ -75,6 +77,7 @@ export const useGameStore = create((set) => ({
     totalRounds: 3,
     finalScores: null,
     reactions: {},
+    hostId: null,
     punishment: {
       enabled: false,
       segments: DEFAULT_SEGMENTS.map(s => ({ ...s })),

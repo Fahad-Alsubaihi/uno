@@ -42,6 +42,7 @@ export function useSocket() {
     on('room-updated', (s) => {
       ref.current.setRoomPlayers(s.players);
       if (s.totalRounds !== undefined) ref.current.setTotalRounds(s.totalRounds);
+      if (s.hostId !== undefined) ref.current.setHostId(s.hostId);
     });
     on('game-started', () => ref.current.setScreen('game'));
     on('game-state',   (s) => ref.current.setGameState(s));
@@ -107,6 +108,7 @@ export function useSocket() {
       ref.current.setWheelResult(null);
       ref.current.setRoomPlayers(state.players);
       if (state.totalRounds !== undefined) ref.current.setTotalRounds(Number(state.totalRounds) || state.totalRounds);
+      if (state.hostId !== undefined) ref.current.setHostId(state.hostId);
       ref.current.setScreen('lobby');
     });
 

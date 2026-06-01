@@ -47,7 +47,7 @@ function WaitingDots() {
 }
 
 export function LobbyScreen({ socket }) {
-  const { roomCode, roomPlayers, playerId, reset, punishment, setPunishment, totalRounds } = useGameStore();
+  const { roomCode, roomPlayers, playerId, hostId, reset, punishment, setPunishment, totalRounds } = useGameStore();
   const game = useGame(socket);
   const [setupOpen, setSetupOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -72,7 +72,7 @@ export function LobbyScreen({ socket }) {
     }, 3000);
   }
 
-  const isHost = roomPlayers[0]?.id === playerId;
+  const isHost = hostId ? hostId === playerId : roomPlayers[0]?.id === playerId;
   const canStart = roomPlayers.length >= 2;
   const myApproved = punishment.approvals?.includes(playerId);
   const allApproved = punishment.enabled
