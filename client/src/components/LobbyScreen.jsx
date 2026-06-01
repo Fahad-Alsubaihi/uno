@@ -269,31 +269,63 @@ export function LobbyScreen({ socket }) {
         <div style={{
           background: 'rgba(0,0,0,0.25)',
           border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 14, padding: '14px 16px', marginBottom: 16,
+          borderRadius: 14, padding: '10px 16px', marginBottom: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 13, color: '#E2E8F0', letterSpacing: 1, marginBottom: 10 }}>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 13, color: '#E2E8F0' }}>
             عدد الجولات
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            {[1, 3, 5, 7, '∞'].map(n => (
-              <motion.button
-                key={n}
-                whileHover={isHost ? { scale: 1.05 } : {}}
-                whileTap={isHost ? { scale: 0.95 } : {}}
-                onClick={() => isHost && game.setRounds(n)}
-                style={{
-                  background: totalRounds === n ? '#7C3AED' : 'rgba(255,255,255,0.08)',
-                  border: `1px solid ${totalRounds === n ? '#7C3AED' : 'rgba(255,255,255,0.1)'}`,
-                  borderRadius: 8, padding: '8px 14px',
-                  color: '#fff', cursor: isHost ? 'pointer' : 'default',
-                  fontFamily: 'var(--font-head)', fontSize: 14,
-                  boxShadow: totalRounds === n ? '0 0 12px rgba(124,58,237,0.4)' : 'none',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {n}
-              </motion.button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <motion.button
+              whileHover={isHost && totalRounds !== '∞' && totalRounds > 1 ? { scale: 1.1 } : {}}
+              whileTap={isHost && totalRounds !== '∞' && totalRounds > 1 ? { scale: 0.9 } : {}}
+              onClick={() => isHost && totalRounds !== '∞' && totalRounds > 1 && game.setRounds(totalRounds - 1)}
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                color: '#fff', fontSize: 20,
+                cursor: isHost && totalRounds !== '∞' && totalRounds > 1 ? 'pointer' : 'default',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: (!isHost || totalRounds === 1 || totalRounds === '∞') ? 0.3 : 1,
+              }}
+            >−</motion.button>
+
+            <div style={{
+              fontFamily: 'var(--font-head)', fontSize: 22,
+              color: '#A78BFA', minWidth: 44, textAlign: 'center',
+            }}>
+              {totalRounds === '∞' || totalRounds === Infinity ? '∞' : totalRounds}
+            </div>
+
+            <motion.button
+              whileHover={isHost && totalRounds !== '∞' ? { scale: 1.1 } : {}}
+              whileTap={isHost && totalRounds !== '∞' ? { scale: 0.9 } : {}}
+              onClick={() => isHost && totalRounds !== '∞' && game.setRounds(totalRounds + 1)}
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                color: '#fff', fontSize: 20,
+                cursor: isHost && totalRounds !== '∞' ? 'pointer' : 'default',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: (!isHost || totalRounds === '∞') ? 0.3 : 1,
+              }}
+            >+</motion.button>
+
+            <motion.button
+              whileHover={isHost ? { scale: 1.05 } : {}}
+              whileTap={isHost ? { scale: 0.95 } : {}}
+              onClick={() => isHost && game.setRounds('∞')}
+              style={{
+                background: (totalRounds === '∞' || totalRounds === Infinity) ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${(totalRounds === '∞' || totalRounds === Infinity) ? '#7C3AED' : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 8, padding: '4px 10px',
+                color: (totalRounds === '∞' || totalRounds === Infinity) ? '#A78BFA' : '#475569',
+                fontFamily: 'var(--font-head)', fontSize: 13,
+                cursor: isHost ? 'pointer' : 'default',
+              }}
+            >∞</motion.button>
           </div>
         </div>
 

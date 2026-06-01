@@ -710,7 +710,11 @@ class GameRoom {
       this.scores[winner.id] = (this.scores[winner.id] || 0) + 250;
     }
 
-    if (this.currentRound < this.totalRounds) {
+    console.log(`[Round ${this.currentRound}/${this.totalRounds}] Winner: ${winner.name}, Scores:`, this.scores);
+
+    const isLastRound = this.totalRounds !== Infinity && this.currentRound >= this.totalRounds;
+
+    if (!isLastRound) {
       this.waitingForNextRound = true;
       return {
         roundOver: true,
@@ -729,10 +733,13 @@ class GameRoom {
         this.wheelCumAngle = 0;
       }
       return {
-        gameOver: true, finalRound: true,
+        gameOver: true,
+        finalRound: true,
         winner,
         loser: loser ? { id: loser.id, name: loser.name } : null,
         scores: { ...this.scores },
+        currentRound: this.currentRound,
+        totalRounds: this.totalRounds === Infinity ? '∞' : this.totalRounds,
       };
     }
   }
@@ -781,6 +788,7 @@ class GameRoom {
     this.currentRound++;
     this.waitingForNextRound = false;
     this._startNewRound();
+    console.log(`[Starting Round ${this.currentRound}/${this.totalRounds}]`);
     return { ok: true };
   }
 }
