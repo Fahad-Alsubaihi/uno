@@ -313,6 +313,17 @@ io.on('connection', socket => {
     io.to(room.code).emit('game-restarted', room.getState());
   });
 
+  socket.on('kick-player', ({ targetId }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room) return;
+    if (room.players[0]?.id !== socket.id) return socket.emit('error', { message: 'فقط المضيف' });
+    const target = room.players.find(p => p.id === targetId);
+    if (!target) return;
+    room.removePlayer(targetId);
+    io.to(targetId).emit('kicked');
+    io.to(room.code).emit('room-updated', room.getState());
+  });
+
   socket.on('disconnect', async () => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);

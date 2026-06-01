@@ -237,6 +237,23 @@ export function LobbyScreen({ socket }) {
                     ✓
                   </motion.span>
                 )}
+                {isHost && i !== 0 && (
+                  <motion.button
+                    whileHover={{ scale: 1.15, background: 'rgba(239,68,68,0.25)' }}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => game.kickPlayer(p.id)}
+                    title="طرد اللاعب"
+                    style={{
+                      width: 24, height: 24, borderRadius: '50%',
+                      background: 'rgba(239,68,68,0.1)',
+                      border: '1px solid rgba(239,68,68,0.3)',
+                      color: '#EF4444',
+                      fontSize: 16, lineHeight: 1,
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >×</motion.button>
+                )}
               </div>
             </motion.div>
           ))}
@@ -277,24 +294,17 @@ export function LobbyScreen({ socket }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <motion.button
-              whileHover={isHost ? { scale: 1.1 } : {}}
-              whileTap={isHost ? { scale: 0.9 } : {}}
-              onClick={() => {
-                if (!isHost) return;
-                if (totalRounds === '∞' || totalRounds === Infinity) {
-                  game.setRounds(5);
-                } else if (totalRounds > 1) {
-                  game.setRounds(totalRounds - 1);
-                }
-              }}
+              whileHover={isHost && totalRounds > 1 ? { scale: 1.1 } : {}}
+              whileTap={isHost && totalRounds > 1 ? { scale: 0.9 } : {}}
+              onClick={() => isHost && totalRounds > 1 && game.setRounds(Number(totalRounds) - 1)}
               style={{
                 width: 32, height: 32, borderRadius: '50%',
                 background: 'rgba(255,255,255,0.08)',
                 border: '1px solid rgba(255,255,255,0.15)',
                 color: '#fff', fontSize: 20,
-                cursor: isHost ? 'pointer' : 'default',
+                cursor: isHost && totalRounds > 1 ? 'pointer' : 'default',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                opacity: (!isHost || totalRounds === 1) ? 0.3 : 1,
+                opacity: (!isHost || totalRounds <= 1) ? 0.3 : 1,
               }}
             >−</motion.button>
 
@@ -302,37 +312,23 @@ export function LobbyScreen({ socket }) {
               fontFamily: 'var(--font-head)', fontSize: 22,
               color: '#A78BFA', minWidth: 44, textAlign: 'center',
             }}>
-              {totalRounds === '∞' || totalRounds === Infinity ? '∞' : totalRounds}
+              {totalRounds}
             </div>
 
             <motion.button
-              whileHover={isHost && totalRounds !== '∞' ? { scale: 1.1 } : {}}
-              whileTap={isHost && totalRounds !== '∞' ? { scale: 0.9 } : {}}
-              onClick={() => isHost && totalRounds !== '∞' && game.setRounds(totalRounds + 1)}
+              whileHover={isHost && totalRounds < 10 ? { scale: 1.1 } : {}}
+              whileTap={isHost && totalRounds < 10 ? { scale: 0.9 } : {}}
+              onClick={() => isHost && totalRounds < 10 && game.setRounds(Number(totalRounds) + 1)}
               style={{
                 width: 32, height: 32, borderRadius: '50%',
                 background: 'rgba(255,255,255,0.08)',
                 border: '1px solid rgba(255,255,255,0.15)',
                 color: '#fff', fontSize: 20,
-                cursor: isHost && totalRounds !== '∞' ? 'pointer' : 'default',
+                cursor: isHost && totalRounds < 10 ? 'pointer' : 'default',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                opacity: (!isHost || totalRounds === '∞') ? 0.3 : 1,
+                opacity: (!isHost || totalRounds >= 10) ? 0.3 : 1,
               }}
             >+</motion.button>
-
-            <motion.button
-              whileHover={isHost ? { scale: 1.05 } : {}}
-              whileTap={isHost ? { scale: 0.95 } : {}}
-              onClick={() => isHost && game.setRounds('∞')}
-              style={{
-                background: (totalRounds === '∞' || totalRounds === Infinity) ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${(totalRounds === '∞' || totalRounds === Infinity) ? '#7C3AED' : 'rgba(255,255,255,0.1)'}`,
-                borderRadius: 8, padding: '4px 10px',
-                color: (totalRounds === '∞' || totalRounds === Infinity) ? '#A78BFA' : '#475569',
-                fontFamily: 'var(--font-head)', fontSize: 13,
-                cursor: isHost ? 'pointer' : 'default',
-              }}
-            >∞</motion.button>
           </div>
         </div>
 

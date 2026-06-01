@@ -81,13 +81,22 @@ export function useSocket() {
     });
 
     on('game-restarted', (state) => {
-      ref.current.setScreen('lobby');
       ref.current.setGameState(null);
       ref.current.setWinner(null);
       ref.current.setLoser(null);
       ref.current.setRoundResult(null);
       ref.current.setFinalScores(null);
+      ref.current.setShowWheel(false);
+      ref.current.setWheelResult(null);
       ref.current.setRoomPlayers(state.players);
+      if (state.totalRounds !== undefined) ref.current.setTotalRounds(Number(state.totalRounds) || state.totalRounds);
+      ref.current.setScreen('lobby');
+    });
+
+    on('kicked', () => {
+      ref.current.reset();
+      ref.current.setError('تم طردك من الغرفة');
+      setTimeout(() => ref.current.setError(null), 3500);
     });
 
     on('punishment-updated', (data) => ref.current.setPunishment(data));
@@ -105,7 +114,7 @@ export function useSocket() {
       ['room-joined','room-updated','game-started','game-state','game-over',
        'player-eliminated','uno-called','uno-caught','seven-swapped',
        'roulette-resolved','card-played','punishment-updated','wheel-result',
-       'round-over','round-started','rounds-updated','game-restarted','error',
+       'round-over','round-started','rounds-updated','game-restarted','kicked','error',
       ].forEach(ev => socket.off(ev));
     };
   }, []);

@@ -138,9 +138,7 @@ export function RoundOverModal({ result, roomPlayers, playerId, isHost, onNextRo
                 boxShadow: '0 0 20px rgba(244,63,94,0.4)',
               }}
             >
-              {totalRounds === '∞'
-              ? 'ابدأ الجولة التالية'
-              : `ابدأ الجولة ${Number(currentRound) + 1} من ${totalRounds}`}
+              {`ابدأ الجولة ${Number(currentRound) + 1} من ${totalRounds}`}
             </motion.button>
           ) : (
             <div style={{
