@@ -48,8 +48,9 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
   const drawPhaseFoundPlayable = gameState?.drawPhaseFoundPlayable || false;
   const lastDrawnCardId        = gameState?.lastDrawnCardId        || null;
 
-  const [selectedIdx, setSelectedIdx] = useState(null);
-  const [unoPressed,  setUnoPressed]  = useState(false);
+  const [selectedIdx,  setSelectedIdx]  = useState(null);
+  const [unoPressed,   setUnoPressed]   = useState(false);
+  const [hiddenCardId, setHiddenCardId] = useState(null);
   const [winW, setWinW] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 390
   );
@@ -64,10 +65,11 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     return () => window.removeEventListener('resize', fn);
   }, []);
 
-  /* ── reset on hand change ── */
+  /* ── reset on hand change (server confirmed) ── */
   useEffect(() => {
     setSelectedIdx(null);
     setUnoPressed(false);
+    setHiddenCardId(null);
   }, [hand.length]);
 
   /* ── confirm ref is mounted ── */
@@ -77,7 +79,12 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
 
   /* ── card dimensions & layout ── */
   const { cardW, cardH, perRow, peek } = useMemo(() => calcLayout(winW), [winW]);
-  const rows    = useMemo(() => buildRows(hand, perRow), [hand, perRow]);
+  // Filter out the optimistically-hidden card for display only
+  const displayHand = useMemo(
+    () => hiddenCardId ? hand.filter(c => c.id !== hiddenCardId) : hand,
+    [hand, hiddenCardId]
+  );
+  const rows    = useMemo(() => buildRows(displayHand, perRow), [displayHand, perRow]);
   const numRows = rows.length || 1;
 
   /*
@@ -108,14 +115,16 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     if (!isPlayable(card)) { setSelectedIdx(null); return; }
     if (selectedIdx === globalIdx) {
       setSelectedIdx(null);
-      onPlay(globalIdx, card);
+      setHiddenCardId(card.id); // hide immediately before server responds
+      const serverIdx = hand.findIndex(c => c.id === card.id);
+      onPlay(serverIdx, card);
     } else {
       setSelectedIdx(globalIdx);
     }
   }
 
-  const hasUno      = hand.length === 1;
-  const hasPlayable = hand.some(isPlayable);
+  const hasUno      = displayHand.length === 1;
+  const hasPlayable = displayHand.some(isPlayable);
 
   /* ─────────────────────────────────────────
      Render
