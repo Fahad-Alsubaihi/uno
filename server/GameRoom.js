@@ -657,7 +657,7 @@ class GameRoom {
     const gameWinnerPlayer = allPlayers.find(p => p.clientId === gameWinnerId);
     const gameWinner = { id: gameWinnerId, name: gameWinnerPlayer?.name || roundWinner.name };
 
-    const loserPlayer = [...this.players]
+    const loserPlayer = allPlayers
       .filter(p => p.clientId !== gameWinnerId)
       .sort((a, b) => (this.scores[a.clientId] || 0) - (this.scores[b.clientId] || 0))[0];
     const gameLoser = loserPlayer ? { id: loserPlayer.clientId, name: loserPlayer.name } : null;

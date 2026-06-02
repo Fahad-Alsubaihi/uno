@@ -93,9 +93,20 @@ function handleElimination(room, result) {
     io.to(room.code).emit('player-eliminated', { playerId: eliminated.clientId, playerName: eliminated.name });
   }
   if (room.players.length === 1) {
-    room.gameStarted = false;
     const survivor = room.players[0];
-    emitGameOver(room, { id: survivor.clientId, name: survivor.name });
+    const winResult = room._handleWin(survivor);
+    if (winResult.roundOver) {
+      io.to(room.code).emit('round-over', {
+        roundWinner: winResult.roundWinner, scores: winResult.scores,
+        currentRound: winResult.currentRound, totalRounds: winResult.totalRounds,
+      });
+      broadcastGameState(room);
+    } else {
+      io.to(room.code).emit('game-over', {
+        winner: winResult.winner, loser: winResult.loser,
+        punishmentMode: room.punishmentMode, scores: winResult.scores,
+      });
+    }
     return true;
   }
   return false;

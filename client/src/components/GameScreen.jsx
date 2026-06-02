@@ -375,7 +375,7 @@ export function GameScreen({ socket }) {
           gameState={gameState}
           isMyTurn={(isMyTurn && !isMyRoulette) || rouletteDrawing}
           onDraw={handleDraw}
-          hasPlayableInHand={myHand.some(card => {
+          hasPlayableInHand={!rouletteDrawing && myHand.some(card => {
             if (gameState.pendingDraw > 0) return (card.drawValue || 0) >= (gameState.lastDrawValue || 0);
             if (card.color === 'wild') return true;
             const top = gameState.topCard;
