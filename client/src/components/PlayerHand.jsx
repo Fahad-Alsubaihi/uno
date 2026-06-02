@@ -254,7 +254,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                         zIndex:  selected ? 999 : rowZ * 10 + i,
                         filter:  selected
                           ? `drop-shadow(0 0 10px ${glowColor}) drop-shadow(0 8px 20px rgba(0,0,0,0.6))`
-                          : active
+                          : playable
                             ? `drop-shadow(0 2px 4px rgba(0,0,0,0.4))`
                             : 'none',
                       }}
@@ -319,7 +319,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                       <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}>
                         <Card
                           card={card}
-                          isPlayable={active}
+                          isPlayable={playable}
                           customW={cardW}
                           customH={cardH}
                           onClick={() => {}}
