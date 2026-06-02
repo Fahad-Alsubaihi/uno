@@ -43,14 +43,10 @@ let _sid = 1;
 function sid() { return String(_sid++); }
 
 const DEFAULT_SEGMENTS = [
-  { id: sid(), type: 'punishment', text: 'اشرب كوب ماء كامل',        size: 3, color: '#EF4444' },
-  { id: sid(), type: 'punishment', text: 'قلد صوت حيوان 10 ثواني',   size: 2, color: '#F97316' },
-  { id: sid(), type: 'luck',       text: 'retry',                     size: 2, color: '#7C3AED' },
-  { id: sid(), type: 'punishment', text: 'افعل 10 ضغط',              size: 3, color: '#EC4899' },
-  { id: sid(), type: 'punishment', text: 'غني مقطع',                  size: 2, color: '#DC2626' },
-  { id: sid(), type: 'luck',       text: 'reverse',                   size: 1, color: '#2563EB' },
-  { id: sid(), type: 'punishment', text: 'قل سراً محرجاً',            size: 2, color: '#B45309' },
-  { id: sid(), type: 'punishment', text: 'تخطي دورك مرتين',           size: 2, color: '#EA580C' },
+  { id: sid(), type: 'punishment', text: 'اشرب كوب ماء كامل', size: 3, color: '#EF4444' },
+  { id: sid(), type: 'punishment', text: 'غني مقطع',           size: 2, color: '#F97316' },
+  { id: sid(), type: 'luck',       text: 'retry',              size: 2, color: '#7C3AED' },
+  { id: sid(), type: 'punishment', text: 'قل سراً محرجاً',     size: 2, color: '#EC4899' },
 ];
 
 class GameRoom {

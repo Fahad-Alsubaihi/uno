@@ -29,29 +29,16 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
   const isAway = player.away || false;
 
   return (
-    <motion.div
-      animate={{
-        boxShadow: isCurrentPlayer
-          ? [
-              '0 0 16px rgba(34,197,94,0.35), 0 0 0 1.5px rgba(34,197,94,0.5)',
-              '0 0 32px rgba(34,197,94,0.65), 0 0 0 1.5px rgba(34,197,94,0.9)',
-              '0 0 16px rgba(34,197,94,0.35), 0 0 0 1.5px rgba(34,197,94,0.5)',
-            ]
-          : 'none',
-      }}
-      transition={{ repeat: Infinity, duration: 1.1, ease: 'easeInOut' }}
+    <div
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
         padding: '10px 14px 10px',
         borderRadius: 14,
-        background: isCurrentPlayer
-          ? 'rgba(34,197,94,0.12)'
-          : 'rgba(255,255,255,0.04)',
-        border: isCurrentPlayer
-          ? '1.5px solid rgba(34,197,94,0.55)'
-          : '1px solid rgba(255,255,255,0.08)',
+        background: isCurrentPlayer ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.04)',
+        border: isCurrentPlayer ? '1.5px solid rgba(34,197,94,0.55)' : '1px solid rgba(255,255,255,0.08)',
+        animation: isCurrentPlayer ? 'opponentGlow 1.1s ease-in-out infinite' : 'none',
         minWidth: 90, maxWidth: 120,
-        transition: 'background 0.3s, border-color 0.3s',
+        transition: 'background 0.25s, border-color 0.25s, box-shadow 0.25s',
         direction: 'rtl', position: 'relative',
       }}
     >
@@ -270,6 +257,6 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

@@ -2,14 +2,10 @@ import { create } from 'zustand';
 import { getClientId } from '../utils/clientId';
 
 const DEFAULT_SEGMENTS = [
-  { id: '1', type: 'punishment', text: 'اشرب كوب ماء كامل',               size: 3, color: '#EF4444' },
-  { id: '2', type: 'punishment', text: 'قلد صوت حيوان 10 ثواني',           size: 2, color: '#F97316' },
-  { id: '3', type: 'luck',       text: 'retry',                            size: 2, color: '#7C3AED' },
-  { id: '4', type: 'punishment', text: 'افعل 10 ضغط',                     size: 3, color: '#EC4899' },
-  { id: '5', type: 'punishment', text: 'غني مقطع',                         size: 2, color: '#DC2626' },
-  { id: '6', type: 'luck',       text: 'reverse',                          size: 1, color: '#2563EB' },
-  { id: '7', type: 'punishment', text: 'قل سراً محرجاً',                   size: 2, color: '#B45309' },
-  { id: '8', type: 'punishment', text: 'تخطي دورك مرتين',                  size: 2, color: '#EA580C' },
+  { id: '1', type: 'punishment', text: 'اشرب كوب ماء كامل', size: 3, color: '#EF4444' },
+  { id: '2', type: 'punishment', text: 'غني مقطع',           size: 2, color: '#F97316' },
+  { id: '3', type: 'luck',       text: 'retry',              size: 2, color: '#7C3AED' },
+  { id: '4', type: 'punishment', text: 'قل سراً محرجاً',     size: 2, color: '#EC4899' },
 ];
 
 export const useGameStore = create((set) => ({
