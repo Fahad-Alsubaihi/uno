@@ -18,9 +18,14 @@ const GUIDE = [
     desc:  'عكس اتجاه اللعب',
   },
   {
-    card:  { id: 'g-d2',      color: 'yellow', type: 'draw-two', value: '+2', drawValue: 2 },
+    card:  { id: 'g-d2',      color: 'yellow', type: 'draw-two',  value: '+2', drawValue: 2 },
     name:  'اسحب 2',
     desc:  'التالي يسحب 2 ويخسر دوره',
+  },
+  {
+    card:  { id: 'g-d4',      color: 'blue',   type: 'draw-four', value: '+4', drawValue: 4 },
+    name:  'اسحب 4',
+    desc:  'التالي يسحب 4 ويخسر دوره',
   },
   {
     card:  { id: 'g-dis',     color: 'red',    type: 'discard-all', value: 'discard-all' },

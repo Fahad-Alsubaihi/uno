@@ -40,10 +40,13 @@ function calcLayout(winW) {
    PlayerHand
 ───────────────────────────────────────────── */
 export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
-  const topCard       = gameState?.topCard;
-  const currentColor  = gameState?.currentColor;
-  const pendingDraw   = gameState?.pendingDraw   || 0;
-  const lastDrawValue = gameState?.lastDrawValue || 0;
+  const topCard                = gameState?.topCard;
+  const currentColor           = gameState?.currentColor;
+  const pendingDraw            = gameState?.pendingDraw   || 0;
+  const lastDrawValue          = gameState?.lastDrawValue || 0;
+  const inDrawPhase            = gameState?.inDrawPhase            || false;
+  const drawPhaseFoundPlayable = gameState?.drawPhaseFoundPlayable || false;
+  const lastDrawnCardId        = gameState?.lastDrawnCardId        || null;
 
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [unoPressed,  setUnoPressed]  = useState(false);
@@ -88,6 +91,8 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
   /* ── game logic (unchanged) ── */
   const isPlayable = useCallback((card) => {
     if (!isMyTurn) return false;
+    // After drawing a playable card, only that card can be played
+    if (drawPhaseFoundPlayable) return card.id === lastDrawnCardId;
     if (pendingDraw > 0) return (card.drawValue || 0) >= lastDrawValue;
     if (card.color === 'wild') return true;
     if (!topCard) return false;
@@ -96,7 +101,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     if (card.type !== 'number' && topCard.color !== 'wild' && card.type === topCard.type) return true;
     if (card.type === 'number' && topCard.type === 'number' && card.value === topCard.value) return true;
     return false;
-  }, [isMyTurn, pendingDraw, lastDrawValue, topCard, currentColor]);
+  }, [isMyTurn, drawPhaseFoundPlayable, lastDrawnCardId, pendingDraw, lastDrawValue, topCard, currentColor]);
 
   const isJumpable = useCallback((card) => {
     if (!topCard || isMyTurn) return false;
@@ -241,13 +246,14 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                 }}
               >
                 {rowCards.map((card, i) => {
-                  const globalIdx = rowIndex * perRow + i;
-                  const playable  = isPlayable(card);
-                  const jumpable  = isJumpable(card);
-                  const active    = playable || jumpable;
-                  const selected  = selectedIdx === globalIdx;
-                  const dimmed    = isMyTurn && !active;
-                  const glowColor = GLOW[card.color] || GLOW.wild;
+                  const globalIdx   = rowIndex * perRow + i;
+                  const playable    = isPlayable(card);
+                  const jumpable    = isJumpable(card);
+                  const active      = playable || jumpable;
+                  const selected    = selectedIdx === globalIdx;
+                  const isDrawnCard = drawPhaseFoundPlayable && card.id === lastDrawnCardId;
+                  const dimmed      = isMyTurn && !active;
+                  const glowColor   = GLOW[card.color] || GLOW.wild;
 
                   return (
                     <motion.div
@@ -314,6 +320,24 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                             borderRadius:  10,
                             border:        '2px solid #F59E0B',
                             background:    'rgba(245,158,11,0.08)',
+                            zIndex:        0,
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      )}
+
+                      {/* ── Drawn card pulse (must play) ── */}
+                      {isDrawnCard && !selected && (
+                        <motion.div
+                          animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.06, 1] }}
+                          transition={{ repeat: Infinity, duration: 0.85, ease: 'easeInOut' }}
+                          style={{
+                            position:      'absolute',
+                            inset:         -5,
+                            borderRadius:  12,
+                            border:        '2.5px solid #FCD34D',
+                            background:    'rgba(252,211,77,0.12)',
+                            boxShadow:     '0 0 16px rgba(252,211,77,0.6)',
                             zIndex:        0,
                             pointerEvents: 'none',
                           }}
@@ -420,7 +444,25 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
           </div>
 
           <AnimatePresence mode="wait">
-            {isMyTurn && !hasPlayable && pendingDraw === 0 && (
+            {isMyTurn && drawPhaseFoundPlayable && (
+              <motion.span key="must-play-hint"
+                initial={{ opacity: 0, x: 6 }} animate={{ opacity: [0.7, 1, 0.7], x: 0 }} exit={{ opacity: 0 }}
+                transition={{ repeat: Infinity, duration: 1.1 }}
+                style={{ fontSize: 10, color: '#FCD34D', fontFamily: 'var(--font-head)', letterSpacing: 1 }}
+              >
+                · العب الورقة المسحوبة
+              </motion.span>
+            )}
+            {isMyTurn && inDrawPhase && !drawPhaseFoundPlayable && (
+              <motion.span key="draw-again-hint"
+                initial={{ opacity: 0, x: 6 }} animate={{ opacity: [0.6, 1, 0.6], x: 0 }} exit={{ opacity: 0 }}
+                transition={{ repeat: Infinity, duration: 1.1 }}
+                style={{ fontSize: 10, color: '#60A5FA', fontFamily: 'var(--font-head)', letterSpacing: 1 }}
+              >
+                · اسحب مرة أخرى
+              </motion.span>
+            )}
+            {isMyTurn && !inDrawPhase && !hasPlayable && pendingDraw === 0 && (
               <motion.span key="draw-hint"
                 initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                 style={{ fontSize: 10, color: '#A78BFA', fontFamily: 'var(--font-head)', letterSpacing: 1 }}

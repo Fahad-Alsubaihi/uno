@@ -13,7 +13,8 @@ function createDeck() {
     for (let i = 0; i < 2; i++) {
       deck.push({ id: uuidv4(), color, type: 'skip',        value: 'skip' });
       deck.push({ id: uuidv4(), color, type: 'reverse',     value: 'reverse' });
-      deck.push({ id: uuidv4(), color, type: 'draw-two',    value: '+2', drawValue: 2 });
+      deck.push({ id: uuidv4(), color, type: 'draw-two',    value: '+2',  drawValue: 2 });
+      deck.push({ id: uuidv4(), color, type: 'draw-four',   value: '+4',  drawValue: 4 });
       deck.push({ id: uuidv4(), color, type: 'skip-all',    value: 'skip-all' });
       deck.push({ id: uuidv4(), color, type: 'discard-all', value: 'discard-all' });
     }
@@ -87,6 +88,10 @@ class GameRoom {
     this.currentRound = 1;
     this.scores = {};
     this.waitingForNextRound = false;
+    // Draw-phase tracking (draw one card at a time until playable)
+    this.inDrawPhase = false;
+    this.drawPhaseFoundPlayable = false;
+    this.lastDrawnCardId = null;
   }
 
   // ── Player management ──
@@ -145,6 +150,9 @@ class GameRoom {
     this.pendingSevenClientId = null;
     this.pendingColorRoulette = false;
     this.pendingColorRouletteClientId = null;
+    this.inDrawPhase = false;
+    this.drawPhaseFoundPlayable = false;
+    this.lastDrawnCardId = null;
 
     for (const player of this.players) {
       player.hand = [];
@@ -170,6 +178,9 @@ class GameRoom {
   // ── Turn helpers ──
 
   _advanceTurn(times = 1) {
+    this.inDrawPhase = false;
+    this.drawPhaseFoundPlayable = false;
+    this.lastDrawnCardId = null;
     for (let i = 0; i < times; i++) {
       this.currentPlayerIndex =
         (this.currentPlayerIndex + this.direction + this.players.length) % this.players.length;
@@ -257,8 +268,17 @@ class GameRoom {
     if (!card)                 return { error: 'ورقة غير صالحة' };
     if (!this._isPlayable(card)) return { error: 'لا يمكنك لعب هذه البطاقة' };
 
+    // Enforce: after drawing a playable card, must play that specific card
+    if (this.drawPhaseFoundPlayable && card.id !== this.lastDrawnCardId) {
+      return { error: 'يجب لعب الورقة التي سحبتها' };
+    }
+
     player.hand.splice(cardIndex, 1);
     player.unoCalled = false;
+    // Reset draw phase on successful play
+    this.inDrawPhase = false;
+    this.drawPhaseFoundPlayable = false;
+    this.lastDrawnCardId = null;
 
     if (this._isWildCard(card.type)) {
       if (card.type !== 'wild-color-roulette') {
@@ -292,6 +312,7 @@ class GameRoom {
         this._advanceTurn(this.players.length === 2 ? 2 : 1);
         break;
       case 'draw-two':
+      case 'draw-four':
       case 'wild-draw-six':
       case 'wild-draw-ten':
         this._advanceTurn(1);
@@ -346,6 +367,7 @@ class GameRoom {
 
     const player = this.players[pIdx];
 
+    // Stacking draw penalty — take all at once
     if (this.pendingDraw > 0) {
       const count = this.pendingDraw;
       this._drawCards(player, count);
@@ -356,25 +378,34 @@ class GameRoom {
       return { drew: count, eliminated };
     }
 
-    let drew = 0;
-    let drawnCard;
-    do {
-      if (this.deck.length === 0) this._reshuffleDeck();
-      if (this.deck.length === 0) break;
-      drawnCard = this.deck.pop();
-      player.hand.push(drawnCard);
-      drew++;
-    } while (!this._isPlayable(drawnCard) && drew < 30);
+    // Already found a playable drawn card — must play it first
+    if (this.drawPhaseFoundPlayable) {
+      return { error: 'العب الورقة المسحوبة أولاً' };
+    }
+
+    // Draw exactly one card
+    if (this.deck.length === 0) this._reshuffleDeck();
+    if (this.deck.length === 0) return { error: 'الدكة فارغة' };
+
+    const drawnCard = this.deck.pop();
+    player.hand.push(drawnCard);
+    this.inDrawPhase = true;
+    this.lastDrawnCardId = drawnCard.id;
+
+    const mustPlay = this._isPlayable(drawnCard);
+    if (mustPlay) this.drawPhaseFoundPlayable = true;
 
     const eliminated = this._checkMercyRule(player);
-    if (!eliminated) this._advanceTurn(1);
-    return { drew, eliminated };
+    if (eliminated) return { drew: 1, eliminated: true };
+
+    return { drew: 1, card: drawnCard, mustPlay, eliminated: false };
   }
 
   passTurn(clientId) {
     const pIdx = this.players.findIndex(p => p.clientId === clientId);
     if (pIdx === -1)                      return { error: 'لاعب غير موجود' };
     if (pIdx !== this.currentPlayerIndex) return { error: 'ليس دورك' };
+    if (this.inDrawPhase) return { error: 'يجب مواصلة السحب حتى تجد ورقة قابلة للعب' };
     this._advanceTurn(1);
     return { ok: true };
   }
@@ -499,6 +530,7 @@ class GameRoom {
         this._advanceTurn(this.players.length === 2 ? 2 : 1);
         break;
       case 'draw-two':
+      case 'draw-four':
       case 'wild-draw-six':
       case 'wild-draw-ten':
         this._advanceTurn(1);
@@ -713,6 +745,9 @@ class GameRoom {
     this.pendingColorRoulette = false;
     this.pendingColorRouletteClientId = null;
     this.rouletteChosenColor = null;
+    this.inDrawPhase = false;
+    this.drawPhaseFoundPlayable = false;
+    this.lastDrawnCardId = null;
 
     for (const player of this.players) {
       player.hand = [];
@@ -841,6 +876,9 @@ class GameRoom {
       pendingColorRoulette: this.pendingColorRoulette,
       pendingColorRoulettePlayerId: this.pendingColorRouletteClientId,
       rouletteChosenColor: this.rouletteChosenColor,
+      inDrawPhase: this.inDrawPhase,
+      drawPhaseFoundPlayable: this.drawPhaseFoundPlayable,
+      lastDrawnCardId: this.lastDrawnCardId,
       deckCount: this.deck.length,
       currentRound: this.currentRound,
       totalRounds: this.totalRounds,

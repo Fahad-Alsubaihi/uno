@@ -6,8 +6,9 @@ const COLOR_RING = {
 };
 
 export function GameBoard({ gameState, isMyTurn, onDraw }) {
-  const { topCard, currentColor, pendingDraw, deckCount, direction } = gameState;
+  const { topCard, currentColor, pendingDraw, deckCount, direction, inDrawPhase, drawPhaseFoundPlayable } = gameState;
   const ringColor = COLOR_RING[currentColor] || '#7C3AED';
+  const canDraw = isMyTurn && !drawPhaseFoundPlayable;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, direction: 'rtl', position: 'relative' }}>
@@ -56,10 +57,10 @@ export function GameBoard({ gameState, isMyTurn, onDraw }) {
         {/* Deck */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <motion.div
-            whileHover={isMyTurn ? { y: -6, scale: 1.06 } : {}}
-            whileTap={isMyTurn ? { scale: 0.95 } : {}}
-            onClick={isMyTurn ? onDraw : undefined}
-            style={{ cursor: isMyTurn ? 'pointer' : 'default', position: 'relative' }}
+            whileHover={canDraw ? { y: -6, scale: 1.06 } : {}}
+            whileTap={canDraw ? { scale: 0.95 } : {}}
+            onClick={canDraw ? onDraw : undefined}
+            style={{ cursor: canDraw ? 'pointer' : 'default', position: 'relative' }}
           >
             {/* Stack shadow layers */}
             {[3, 2, 1].map(o => (
@@ -73,9 +74,9 @@ export function GameBoard({ gameState, isMyTurn, onDraw }) {
               }} />
             ))}
             <Card card={{ id: 'deck', color: 'wild', type: 'wild', value: 'wild' }} faceDown size="md" />
-            {/* Draw glow ring when it's your turn */}
+            {/* Draw glow ring when it's your turn and can draw */}
             <AnimatePresence>
-              {isMyTurn && (
+              {canDraw && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: [0.4, 0.85, 0.4], scale: [1, 1.05, 1] }}
@@ -89,15 +90,54 @@ export function GameBoard({ gameState, isMyTurn, onDraw }) {
                   }}
                 />
               )}
+              {/* Disabled overlay when must play drawn card */}
+              {isMyTurn && drawPhaseFoundPlayable && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    position: 'absolute', inset: 0,
+                    borderRadius: 10,
+                    background: 'rgba(0,0,0,0.55)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
             </AnimatePresence>
           </motion.div>
 
           <span style={{ fontSize: 10, color: '#475569', fontFamily: 'var(--font-head)' }}>
             {deckCount} ورقة
           </span>
-          <AnimatePresence>
-            {isMyTurn && (
+          <AnimatePresence mode="wait">
+            {isMyTurn && drawPhaseFoundPlayable && (
               <motion.span
+                key="must-play"
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: [0.7, 1, 0.7], scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ repeat: Infinity, duration: 1.2 }}
+                style={{ fontSize: 9, color: '#FCD34D', fontFamily: 'var(--font-head)', letterSpacing: 1, textAlign: 'center' }}
+              >
+                العب الورقة
+              </motion.span>
+            )}
+            {isMyTurn && inDrawPhase && !drawPhaseFoundPlayable && (
+              <motion.span
+                key="draw-again"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                exit={{ opacity: 0 }}
+                transition={{ repeat: Infinity, duration: 1.1 }}
+                style={{ fontSize: 9, color: '#60A5FA', fontFamily: 'var(--font-head)', letterSpacing: 1, textAlign: 'center' }}
+              >
+                اسحب مرة أخرى
+              </motion.span>
+            )}
+            {canDraw && !inDrawPhase && (
+              <motion.span
+                key="press-draw"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0.4, 1, 0.4] }}
                 exit={{ opacity: 0 }}
