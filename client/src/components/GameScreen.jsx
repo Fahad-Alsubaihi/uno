@@ -30,6 +30,9 @@ const EMOJIS = ['😂', '😤', '🔥', '💀', '😱', '👏', '🤡', '😈'];
 
 export function GameScreen({ socket }) {
   const { gameState, playerId, hostId, error, notification, roundResult, roomPlayers, setRoundResult, reactions } = useGameStore();
+  // Defined early so hooks can use it as a dependency without TDZ
+  const isMyTurn = gameState?.currentPlayerId === playerId;
+
   const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction } = useGame(socket);
   const sound = useSound();
 
@@ -83,7 +86,6 @@ export function GameScreen({ socket }) {
 
   const myHand   = gameState.myHand || [];
   const players  = gameState.players || [];
-  const isMyTurn = gameState.currentPlayerId === playerId;
   const myPlayer = players.find(p => p.id === playerId);
   const opponents = players.filter(p => p.id !== playerId);
   const isMyRoulette     = gameState.pendingColorRoulette && gameState.pendingColorRoulettePlayerId === playerId;
