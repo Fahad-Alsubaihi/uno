@@ -1,8 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function RoundOverModal({ result, roomPlayers, playerId, isHost, onNextRound }) {
+export function RoundOverModal({ result, roomPlayers, playerId, isHost, onNextRound, punishment, wheelResult }) {
   if (!result) return null;
-  const { roundWinner, scores, currentRound, totalRounds } = result;
+  const { roundWinner, scores, currentRound, totalRounds, roundLoser } = result;
+  const hasPunishment = punishment?.enabled && !!roundLoser;
+  const wheelDone = !hasPunishment || !!wheelResult;
+  const isLoser = roundLoser?.id === playerId;
 
   const sorted = [...roomPlayers]
     .map(p => ({ ...p, score: scores[p.id] || 0 }))
@@ -122,8 +125,34 @@ export function RoundOverModal({ result, roomPlayers, playerId, isHost, onNextRo
             ))}
           </div>
 
-          {/* Next round button */}
-          {isHost ? (
+          {/* Punishment status */}
+          {hasPunishment && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                background: wheelDone ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                border: `1px solid ${wheelDone ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                borderRadius: 12, padding: '12px 16px', marginBottom: 16,
+                display: 'flex', alignItems: 'center', gap: 10, direction: 'rtl',
+              }}
+            >
+              <span style={{ fontSize: 20 }}>{wheelDone ? '✅' : '🎡'}</span>
+              <div>
+                <div style={{ fontFamily: 'var(--font-head)', fontSize: 12, color: wheelDone ? '#22C55E' : '#F87171', letterSpacing: 1 }}>
+                  {wheelDone
+                    ? `${isLoser ? 'تم' : `${roundLoser.name} نفّذ`} العقوبة`
+                    : isLoser ? 'دورك تدور العجلة!' : `انتظر ${roundLoser.name} يدور العجلة…`}
+                </div>
+                {!wheelDone && isLoser && (
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>العجلة ستفتح تلقائياً</div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Next round button — only after wheel is done (or no punishment) */}
+          {wheelDone && isHost ? (
             <motion.button
               whileHover={{ scale: 1.03, boxShadow: '0 0 28px rgba(244,63,94,0.7)' }}
               whileTap={{ scale: 0.97 }}
@@ -140,7 +169,7 @@ export function RoundOverModal({ result, roomPlayers, playerId, isHost, onNextRo
             >
               {`ابدأ الجولة ${Number(currentRound) + 1} من ${totalRounds}`}
             </motion.button>
-          ) : (
+          ) : wheelDone && !isHost ? (
             <div style={{
               textAlign: 'center', padding: 14,
               background: 'rgba(0,0,0,0.2)', borderRadius: 12,
@@ -150,7 +179,7 @@ export function RoundOverModal({ result, roomPlayers, playerId, isHost, onNextRo
                 في انتظار المضيف…
               </motion.span>
             </div>
-          )}
+          ) : null}
         </motion.div>
       </motion.div>
     </AnimatePresence>

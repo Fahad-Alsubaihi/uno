@@ -68,6 +68,11 @@ export function useSocket() {
 
     on('round-over', (data) => {
       ref.current.setRoundResult(data);
+      if (data.punishmentMode && data.roundLoser) {
+        ref.current.setLoser(data.roundLoser);
+        ref.current.setShowWheel(false);
+        ref.current.setWheelResult(null);
+      }
     });
 
     on('round-started', () => {

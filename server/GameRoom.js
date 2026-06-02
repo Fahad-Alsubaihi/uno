@@ -637,11 +637,28 @@ class GameRoom {
     const isLastRound = this.totalRounds !== Infinity && this.currentRound >= this.totalRounds;
     const hasReachedLimit = Object.values(this.scores).some(s => s >= 1000);
 
+    // Round loser: eliminated player OR player with most cards (excluding winner)
+    const roundLoserRecord = this.eliminatedPlayers.length > 0
+      ? this.eliminatedPlayers[this.eliminatedPlayers.length - 1]
+      : this.players.filter(p => p.clientId !== player.clientId)
+          .sort((a, b) => b.hand.length - a.hand.length)[0];
+    const roundLoser = roundLoserRecord
+      ? { id: roundLoserRecord.clientId, name: roundLoserRecord.name }
+      : null;
+
     if (!isLastRound && !hasReachedLimit) {
       this.waitingForNextRound = true;
+      if (this.punishmentMode && allPlayers.length >= 3 && roundLoser) {
+        this.currentSpinnerId = roundLoser.id;
+        this.currentSpinnerName = roundLoser.name;
+        this.lastWinner = roundWinner;
+        this.wheelRetryCount = 0;
+        this.wheelCumAngle = 0;
+      }
       return {
         roundOver: true,
         roundWinner,
+        roundLoser: (this.punishmentMode && allPlayers.length >= 3) ? roundLoser : null,
         scores: { ...this.scores },
         currentRound: this.currentRound,
         totalRounds: this.totalRounds,
@@ -657,15 +674,20 @@ class GameRoom {
     const gameWinnerPlayer = allPlayers.find(p => p.clientId === gameWinnerId);
     const gameWinner = { id: gameWinnerId, name: gameWinnerPlayer?.name || roundWinner.name };
 
-    const loserPlayer = allPlayers
+    const gameLoserRecord = allPlayers
       .filter(p => p.clientId !== gameWinnerId)
       .sort((a, b) => (this.scores[a.clientId] || 0) - (this.scores[b.clientId] || 0))[0];
-    const gameLoser = loserPlayer ? { id: loserPlayer.clientId, name: loserPlayer.name } : null;
+    const gameLoser = gameLoserRecord
+      ? { id: gameLoserRecord.clientId, name: gameLoserRecord.name }
+      : null;
+
+    // 3+ players: punish round loser each round; 2 players: punish game loser at end
+    const loserForPunishment = allPlayers.length >= 3 ? roundLoser : gameLoser;
 
     this.gameStarted = false;
-    if (this.punishmentMode && gameLoser) {
-      this.currentSpinnerId = gameLoser.id;
-      this.currentSpinnerName = gameLoser.name;
+    if (this.punishmentMode && loserForPunishment) {
+      this.currentSpinnerId = loserForPunishment.id;
+      this.currentSpinnerName = loserForPunishment.name;
       this.lastWinner = gameWinner;
       this.wheelRetryCount = 0;
       this.wheelCumAngle = 0;
@@ -674,7 +696,7 @@ class GameRoom {
     return {
       gameOver: true, finalRound: true,
       winner: gameWinner,
-      loser: gameLoser,
+      loser: loserForPunishment,
       scores: { ...this.scores },
       currentRound: this.currentRound,
       totalRounds: this.totalRounds,

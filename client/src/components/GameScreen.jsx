@@ -17,6 +17,7 @@ import { ErrorToast } from './ErrorToast';
 import { Notification } from './Notification';
 import { CardGuide } from './CardGuide';
 import { RoundOverModal } from './RoundOverModal';
+import { PunishmentWheel } from './PunishmentWheel';
 
 const COLOR_META = {
   red:    { hex: '#DC2626', glow: '#EF4444', label: 'أحمر' },
@@ -29,11 +30,16 @@ const COLOR_META = {
 const EMOJIS = ['😂', '😤', '🔥', '💀', '😱', '👏', '🤡', '😈'];
 
 export function GameScreen({ socket }) {
-  const { gameState, playerId, hostId, error, notification, roundResult, roomPlayers, setRoundResult, reactions } = useGameStore();
+  const {
+    gameState, playerId, hostId, error, notification, roundResult, roomPlayers,
+    setRoundResult, reactions,
+    punishment, loser, showWheel, wheelResult,
+    setShowWheel, setLoser, setWheelResult,
+  } = useGameStore();
   // Defined early so hooks can use it as a dependency without TDZ
   const isMyTurn = gameState?.currentPlayerId === playerId;
 
-  const { playCard, drawCard, callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction } = useGame(socket);
+  const { playCard, drawCard, callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction, spinWheel } = useGame(socket);
   const sound = useSound();
 
   const prevIsMyTurnRef = useRef(false);
@@ -46,6 +52,13 @@ export function GameScreen({ socket }) {
     }
     prevIsMyTurnRef.current = isMyTurn;
   }, [isMyTurn]);
+
+  // Auto-open punishment wheel after round ends (3+ player games)
+  useEffect(() => {
+    if (!roundResult?.roundLoser || !punishment?.enabled) return;
+    const t = setTimeout(() => setShowWheel(true), 1200);
+    return () => clearTimeout(t);
+  }, [roundResult?.roundLoser?.id, punishment?.enabled]);
 
   // Page Visibility API — broadcast away status to other players
   useEffect(() => {
@@ -143,7 +156,26 @@ export function GameScreen({ socket }) {
         roomPlayers={roomPlayers}
         playerId={playerId}
         isHost={hostId ? hostId === playerId : roomPlayers[0]?.id === playerId}
-        onNextRound={() => { startNextRound(); setRoundResult(null); }}
+        punishment={punishment}
+        wheelResult={wheelResult}
+        onNextRound={() => {
+          startNextRound();
+          setRoundResult(null);
+          setLoser(null);
+          setWheelResult(null);
+          setShowWheel(false);
+        }}
+      />
+      <PunishmentWheel
+        open={showWheel && !!roundResult}
+        segments={punishment?.segments || []}
+        wheelResult={wheelResult}
+        loser={loser}
+        winner={roundResult?.roundWinner}
+        playerId={playerId}
+        onSpin={() => spinWheel()}
+        onClose={() => setShowWheel(false)}
+        onGrantSecondChance={() => {}}
       />
 
       {/* ── HUD HEADER ── */}

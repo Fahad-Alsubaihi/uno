@@ -330,6 +330,8 @@ io.on('connection', socket => {
       io.to(room.code).emit('round-over', {
         roundWinner: result.roundWinner, scores: result.scores,
         currentRound: result.currentRound, totalRounds: result.totalRounds,
+        roundLoser: result.roundLoser || null,
+        punishmentMode: room.punishmentMode,
       });
       broadcastGameState(room);
     } else if (result.gameOver) {
