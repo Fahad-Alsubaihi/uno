@@ -408,6 +408,11 @@ class GameRoom {
       return { error: 'العب الورقة المسحوبة أولاً' };
     }
 
+    // Official rule: can only draw if you have NO playable card in hand
+    if (!this.inDrawPhase && player.hand.some(c => this._isPlayable(c))) {
+      return { error: 'لديك ورقة قابلة للعب، العبها' };
+    }
+
     // Draw exactly one card
     if (this.deck.length === 0) this._reshuffleDeck();
     if (this.deck.length === 0) return { error: 'الدكة فارغة' };

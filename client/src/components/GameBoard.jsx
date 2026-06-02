@@ -5,10 +5,11 @@ const COLOR_RING = {
   red: '#DC2626', green: '#16A34A', blue: '#2563EB', yellow: '#D97706', wild: '#7C3AED',
 };
 
-export function GameBoard({ gameState, isMyTurn, onDraw }) {
+export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand }) {
   const { topCard, currentColor, pendingDraw, deckCount, direction, inDrawPhase, drawPhaseFoundPlayable } = gameState;
   const ringColor = COLOR_RING[currentColor] || '#7C3AED';
-  const canDraw = isMyTurn && !drawPhaseFoundPlayable;
+  // Can't draw if: found playable after drawing, OR already have a playable card (official rule)
+  const canDraw = isMyTurn && !drawPhaseFoundPlayable && (!hasPlayableInHand || inDrawPhase || pendingDraw > 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, direction: 'rtl', position: 'relative' }}>

@@ -203,11 +203,15 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
           background:           'rgba(15,10,40,0.55)',
           backdropFilter:       'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
-          border:               '1px solid rgba(255,255,255,0.08)',
+          border:               isMyTurn
+            ? '1.5px solid rgba(34,197,94,0.55)'
+            : '1px solid rgba(255,255,255,0.08)',
           borderRadius:         '20px 20px 16px 16px',
-          boxShadow:            '0 -4px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
+          boxShadow:            'inset 0 1px 0 rgba(255,255,255,0.06)',
+          animation:            isMyTurn ? 'trayGlow 1.15s ease-in-out infinite' : 'none',
           overflow:             'visible',
           position:             'relative',
+          transition:           'border-color 0.3s',
           // paddingTop reserves space so lifted cards don't get clipped
           paddingTop:   16,
           paddingLeft:  H_PAD,
@@ -447,7 +451,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                 initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                 style={{ fontSize: 10, color: '#A78BFA', fontFamily: 'var(--font-head)', letterSpacing: 1 }}
               >
-                · اسحب
+                · اسحب حتى تجد ورقة
               </motion.span>
             )}
             {isMyTurn && pendingDraw > 0 && !hasPlayable && (

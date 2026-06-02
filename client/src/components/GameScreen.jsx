@@ -132,26 +132,6 @@ export function GameScreen({ socket }) {
       overflow: 'visible', position: 'relative',
       direction: 'rtl',
     }}>
-      {/* ── MY-TURN SCREEN EDGE GLOW ── */}
-      {/* Uses CSS animation (not FM repeat:Infinity) to avoid Vite TDZ bug */}
-      <AnimatePresence>
-        {isMyTurn && !isMyRoulette && (
-          <motion.div
-            key="turn-glow"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            style={{
-              position: 'fixed', inset: 0,
-              pointerEvents: 'none',
-              zIndex: 500,
-              animation: 'turnGlow 1.15s ease-in-out infinite',
-            }}
-          />
-        )}
-      </AnimatePresence>
-
       <ErrorToast message={error} />
       <Notification notification={notification} />
       <ColorPicker open={colorPickerOpen} onPick={handleColorPick} />
@@ -391,7 +371,21 @@ export function GameScreen({ socket }) {
 
       {/* ── BOARD ── */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-        <GameBoard gameState={gameState} isMyTurn={(isMyTurn && !isMyRoulette) || rouletteDrawing} onDraw={handleDraw} />
+        <GameBoard
+          gameState={gameState}
+          isMyTurn={(isMyTurn && !isMyRoulette) || rouletteDrawing}
+          onDraw={handleDraw}
+          hasPlayableInHand={myHand.some(card => {
+            if (gameState.pendingDraw > 0) return (card.drawValue || 0) >= (gameState.lastDrawValue || 0);
+            if (card.color === 'wild') return true;
+            const top = gameState.topCard;
+            const col = gameState.currentColor || top?.color;
+            if (card.color === col) return true;
+            if (card.type !== 'number' && top?.color !== 'wild' && card.type === top?.type) return true;
+            if (card.type === 'number' && top?.type === 'number' && card.value === top?.value) return true;
+            return false;
+          })}
+        />
       </div>
 
       {/* ── MY NAME ── */}
