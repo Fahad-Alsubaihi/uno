@@ -382,7 +382,7 @@ export function GameScreen({ socket }) {
             key={opp.id}
             player={opp}
             playerIndex={idx + 1}
-            isCurrentPlayer={gameState.currentPlayerId === opp.id}
+            isCurrentPlayer={!isMyTurn && gameState.currentPlayerId === opp.id}
             onCatchUno={catchUno}
             canCatch={true}
             reaction={reactions[opp.id] || null}
