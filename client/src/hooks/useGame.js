@@ -24,11 +24,14 @@ export function useGame(socket) {
   const kickPlayer        = useCallback((id)   => socket.emit('kick-player',   { targetId: id }), [socket]);
   const sendReaction        = useCallback((emoji) => socket.emit('send-reaction',      { emoji }), [socket]);
   const grantSecondChance   = useCallback(()      => socket.emit('grant-second-chance'), [socket]);
+  const startTiebreaker     = useCallback(()      => socket.emit('start-tiebreaker'), [socket]);
+  const callTie             = useCallback(()      => socket.emit('call-tie'), [socket]);
 
   return {
     createRoom, joinRoom, startGame, playCard, drawCard, passTurn,
     callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw,
     setPunishmentMode, setSegments, approvePunishment, spinWheel,
     setRounds, startNextRound, restartGame, kickPlayer, sendReaction, grantSecondChance,
+    startTiebreaker, callTie,
   };
 }

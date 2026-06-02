@@ -34,6 +34,7 @@ export const useGameStore = create((set) => ({
   },
   showWheel: false,
   wheelResult: null,
+  tiebreakerPending: false,
 
   setScreen:       (screen)       => set({ screen }),
   setPlayerName:   (playerName)   => set({ playerName }),
@@ -54,7 +55,8 @@ export const useGameStore = create((set) => ({
   setFinalScores:  (finalScores)  => set({ finalScores }),
   setReaction:    (playerId, emoji) => set(s => ({ reactions: { ...s.reactions, [playerId]: emoji } })),
   clearReaction:  (playerId)       => set(s => { const r = { ...s.reactions }; delete r[playerId]; return { reactions: r }; }),
-  setHostId:      (hostId)         => set({ hostId }),
+  setHostId:             (hostId)             => set({ hostId }),
+  setTiebreakerPending:  (tiebreakerPending)  => set({ tiebreakerPending }),
 
   reset: () => set({
     screen: 'home',
@@ -69,6 +71,7 @@ export const useGameStore = create((set) => ({
     notification: null,
     showWheel: false,
     wheelResult: null,
+    tiebreakerPending: false,
     roundResult: null,
     totalRounds: 3,
     finalScores: null,

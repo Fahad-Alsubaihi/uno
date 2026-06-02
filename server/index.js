@@ -99,8 +99,12 @@ function handleElimination(room, result) {
       io.to(room.code).emit('round-over', {
         roundWinner: winResult.roundWinner, scores: winResult.scores,
         currentRound: winResult.currentRound, totalRounds: winResult.totalRounds,
+        roundLoser: winResult.roundLoser || null,
+        punishmentMode: room.punishmentMode,
       });
       broadcastGameState(room);
+    } else if (winResult.tiebreaker) {
+      io.to(room.code).emit('tiebreaker', { scores: winResult.scores });
     } else {
       io.to(room.code).emit('game-over', {
         winner: winResult.winner, loser: winResult.loser,
@@ -318,6 +322,26 @@ io.on('connection', socket => {
     broadcastGameState(room);
   });
 
+  socket.on('start-tiebreaker', () => {
+    const room = getRoom(socket);
+    if (!room) return;
+    const result = room.startTiebreaker(cid(socket));
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('round-started', { currentRound: room.currentRound });
+    broadcastGameState(room);
+  });
+
+  socket.on('call-tie', () => {
+    const room = getRoom(socket);
+    if (!room) return;
+    const result = room.callTie(cid(socket));
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('game-over', {
+      winner: null, loser: null,
+      tie: true, punishmentMode: false, scores: result.scores,
+    });
+  });
+
   // ── Game events ──
   socket.on('play-card', ({ cardIndex, chosenColor }) => {
     const room = getRoom(socket);
@@ -334,6 +358,8 @@ io.on('connection', socket => {
         punishmentMode: room.punishmentMode,
       });
       broadcastGameState(room);
+    } else if (result.tiebreaker) {
+      io.to(room.code).emit('tiebreaker', { scores: result.scores });
     } else if (result.gameOver) {
       io.to(room.code).emit('game-over', {
         winner: result.winner, loser: result.loser,

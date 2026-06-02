@@ -55,15 +55,21 @@ export function useSocket() {
     on('game-state',   (s) => ref.current.setGameState(s));
 
     on('game-over', ({ winner, loser, punishmentMode, scores }) => {
-      ref.current.setWinner(winner);
+      ref.current.setWinner(winner || null);
       ref.current.setLoser(loser || null);
       if (scores) ref.current.setFinalScores(scores);
+      ref.current.setTiebreakerPending(false);
       const s = ref.current;
       if ((punishmentMode || s.punishment?.enabled) && loser) {
         ref.current.setShowWheel(false);
         ref.current.setWheelResult(null);
       }
       ref.current.setScreen('winner');
+    });
+
+    on('tiebreaker', ({ scores }) => {
+      if (scores) ref.current.setFinalScores(scores);
+      ref.current.setTiebreakerPending(true);
     });
 
     on('round-over', (data) => {
@@ -77,6 +83,7 @@ export function useSocket() {
 
     on('round-started', () => {
       ref.current.setRoundResult(null);
+      ref.current.setTiebreakerPending(false);
     });
 
     on('rounds-updated', ({ totalRounds }) => {
@@ -156,7 +163,7 @@ export function useSocket() {
        'game-state','game-over','player-eliminated','uno-called','uno-caught',
        'seven-swapped','roulette-resolved','card-played','punishment-updated',
        'wheel-result','round-over','round-started','rounds-updated','game-restarted',
-       'kicked','reaction','second-chance-granted','error',
+       'tiebreaker','kicked','reaction','second-chance-granted','error',
       ].forEach(ev => socket.off(ev));
     };
   }, []);

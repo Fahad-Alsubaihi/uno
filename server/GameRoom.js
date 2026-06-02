@@ -84,6 +84,7 @@ class GameRoom {
     this.currentRound = 1;
     this.scores = {};
     this.waitingForNextRound = false;
+    this.pendingTiebreaker = false;
     // Draw-phase tracking (draw one card at a time until playable)
     this.inDrawPhase = false;
     this.drawPhaseFoundPlayable = false;
@@ -97,7 +98,7 @@ class GameRoom {
   }
 
   get status() {
-    if (this.gameStarted || this.waitingForNextRound) return 'playing';
+    if (this.gameStarted || this.waitingForNextRound || this.pendingTiebreaker) return 'playing';
     return 'waiting';
   }
 
@@ -665,6 +666,15 @@ class GameRoom {
       };
     }
 
+    // 2-player tie on last round → offer tiebreaker
+    if (allPlayers.length === 2) {
+      const [s0, s1] = allPlayers.map(p => this.scores[p.clientId] || 0);
+      if (s0 === s1) {
+        this.pendingTiebreaker = true;
+        return { tiebreaker: true, scores: { ...this.scores } };
+      }
+    }
+
     // Game over — winner = highest score
     let topScore = -1, gameWinnerId = roundWinner.id;
     for (const p of allPlayers) {
@@ -751,6 +761,25 @@ class GameRoom {
     return { ok: true };
   }
 
+  startTiebreaker(clientId) {
+    if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
+    if (!this.pendingTiebreaker)        return { error: 'لا يوجد تعادل معلق' };
+    this.pendingTiebreaker = false;
+    this.totalRounds = this.currentRound + 1;
+    this.currentRound++;
+    this.gameStarted = true;
+    this._startNewRound();
+    return { ok: true };
+  }
+
+  callTie(clientId) {
+    if (this.hostClientId !== clientId) return { error: 'فقط المضيف' };
+    if (!this.pendingTiebreaker)        return { error: 'لا يوجد تعادل معلق' };
+    this.pendingTiebreaker = false;
+    this.gameStarted = false;
+    return { tie: true, scores: { ...this.scores } };
+  }
+
   forceResetToLobby() {
     // Restore all eliminated players back into the room
     for (const ep of this.eliminatedPlayers) {
@@ -761,6 +790,7 @@ class GameRoom {
     this.eliminatedPlayers = [];
     this.gameStarted = false;
     this.waitingForNextRound = false;
+    this.pendingTiebreaker = false;
     this.scores = {};
     this.currentRound = 1;
     this.pendingDraw = 0;
@@ -801,6 +831,7 @@ class GameRoom {
     this.scores = {};
     this.gameStarted = false;
     this.waitingForNextRound = false;
+    this.pendingTiebreaker = false;
     this.punishmentApprovals = new Set();
     this.currentSpinnerId = null;
     this.currentSpinnerName = null;
@@ -861,6 +892,7 @@ class GameRoom {
       deckCount: this.deck.length,
       currentRound: this.currentRound,
       totalRounds: this.totalRounds,
+      pendingTiebreaker: this.pendingTiebreaker,
       scores: this.scores,
       waitingForNextRound: this.waitingForNextRound,
     };

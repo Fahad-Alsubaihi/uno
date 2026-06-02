@@ -18,6 +18,7 @@ import { Notification } from './Notification';
 import { CardGuide } from './CardGuide';
 import { RoundOverModal } from './RoundOverModal';
 import { PunishmentWheel } from './PunishmentWheel';
+import { TiebreakerModal } from './TiebreakerModal';
 
 const COLOR_META = {
   red:    { hex: '#DC2626', glow: '#EF4444', label: 'أحمر' },
@@ -35,11 +36,12 @@ export function GameScreen({ socket }) {
     setRoundResult, reactions,
     punishment, loser, showWheel, wheelResult,
     setShowWheel, setLoser, setWheelResult,
+    tiebreakerPending, finalScores,
   } = useGameStore();
   // Defined early so hooks can use it as a dependency without TDZ
   const isMyTurn = gameState?.currentPlayerId === playerId;
 
-  const { playCard, drawCard, callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction, spinWheel } = useGame(socket);
+  const { playCard, drawCard, callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction, spinWheel, startTiebreaker, callTie } = useGame(socket);
   const sound = useSound();
 
   const prevIsMyTurnRef = useRef(false);
@@ -176,6 +178,15 @@ export function GameScreen({ socket }) {
         onSpin={() => spinWheel()}
         onClose={() => setShowWheel(false)}
         onGrantSecondChance={() => {}}
+      />
+      <TiebreakerModal
+        open={tiebreakerPending}
+        scores={finalScores}
+        roomPlayers={roomPlayers}
+        playerId={playerId}
+        isHost={hostId ? hostId === playerId : roomPlayers[0]?.id === playerId}
+        onStartTiebreaker={startTiebreaker}
+        onCallTie={callTie}
       />
 
       {/* ── HUD HEADER ── */}

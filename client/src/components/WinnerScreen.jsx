@@ -84,6 +84,7 @@ export function WinnerScreen({ socket }) {
   const game = useGame(socket);
   const sound = useSound();
   const isWinner = winner?.id === playerId;
+  const isTie = winner === null;
 
   useEffect(() => {
     if (punishment?.enabled && loser) {
@@ -121,16 +122,20 @@ export function WinnerScreen({ socket }) {
       >
         {/* Trophy */}
         <motion.div
-          animate={{ y: [-10, 0, -10], rotate: [-3, 3, -3] }}
+          animate={{ y: [-10, 0, -10], rotate: isTie ? [-5, 5, -5] : [-3, 3, -3] }}
           transition={{ repeat: Infinity, duration: 2.8, ease: 'easeInOut' }}
           style={{ fontSize: 80, marginBottom: 16, lineHeight: 1 }}
         >
-          🏆
+          {isTie ? '🤝' : '🏆'}
         </motion.div>
 
         <motion.h1
           animate={{
-            textShadow: [
+            textShadow: isTie ? [
+              '0 0 20px rgba(251,191,36,0.5)',
+              '0 0 50px rgba(251,191,36,1), 0 0 100px rgba(251,191,36,0.5)',
+              '0 0 20px rgba(251,191,36,0.5)',
+            ] : [
               '0 0 20px rgba(244,63,94,0.5)',
               '0 0 50px rgba(244,63,94,1), 0 0 100px rgba(244,63,94,0.5)',
               '0 0 20px rgba(244,63,94,0.5)',
@@ -140,42 +145,60 @@ export function WinnerScreen({ socket }) {
           style={{
             fontFamily: 'var(--font-head)',
             fontSize: 'clamp(36px, 8vw, 72px)',
-            color: '#F43F5E', letterSpacing: 4, marginBottom: 14,
+            color: isTie ? '#FCD34D' : '#F43F5E', letterSpacing: 4, marginBottom: 14,
           }}
         >
-          {isWinner ? 'فزت!' : 'انتهت اللعبة'}
+          {isTie ? 'تعادل!' : isWinner ? 'فزت!' : 'انتهت اللعبة'}
         </motion.h1>
 
-        {/* Winner badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 10,
-            background: 'rgba(167,139,250,0.1)',
-            border: '1px solid rgba(167,139,250,0.35)',
-            borderRadius: 30, padding: '10px 22px', marginBottom: 18,
-          }}
-        >
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #7C3AED, #A78BFA)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'var(--font-head)', fontSize: 13, color: '#fff',
-            boxShadow: '0 0 12px rgba(124,58,237,0.5)',
-          }}>
-            {winner?.name?.[0]?.toUpperCase()}
-          </div>
-          <p style={{
-            fontFamily: 'var(--font-head)', fontSize: 19,
-            color: '#A78BFA', letterSpacing: 2, margin: 0,
-          }}>
-            {winner?.name} فاز!
-          </p>
-        </motion.div>
+        {/* Winner badge or Tie badge */}
+        {isTie ? (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              background: 'rgba(251,191,36,0.1)',
+              border: '1px solid rgba(251,191,36,0.35)',
+              borderRadius: 30, padding: '10px 22px', marginBottom: 18,
+            }}
+          >
+            <p style={{ fontFamily: 'var(--font-head)', fontSize: 16, color: '#FCD34D', letterSpacing: 2, margin: 0 }}>
+              قرر المضيف بالتعادل
+            </p>
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              background: 'rgba(167,139,250,0.1)',
+              border: '1px solid rgba(167,139,250,0.35)',
+              borderRadius: 30, padding: '10px 22px', marginBottom: 18,
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #7C3AED, #A78BFA)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-head)', fontSize: 13, color: '#fff',
+              boxShadow: '0 0 12px rgba(124,58,237,0.5)',
+            }}>
+              {winner?.name?.[0]?.toUpperCase()}
+            </div>
+            <p style={{
+              fontFamily: 'var(--font-head)', fontSize: 19,
+              color: '#A78BFA', letterSpacing: 2, margin: 0,
+            }}>
+              {winner?.name} فاز!
+            </p>
+          </motion.div>
+        )}
 
-        {!isWinner && (
+        {!isWinner && !isTie && (
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
