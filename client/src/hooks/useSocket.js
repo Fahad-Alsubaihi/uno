@@ -37,8 +37,9 @@ export function useSocket() {
       ref.current.setRoomCode(roomCode);
       ref.current.setPlayerId(playerId);
       ref.current.setScreen('lobby');
-      // persist session so page reload can reconnect
       saveSession(roomCode, ref.current.playerName);
+      // Keep room code in URL so it's shareable and visible
+      window.history.replaceState({}, '', `?room=${roomCode}`);
     });
 
     on('rejoin-failed', () => {
@@ -131,6 +132,7 @@ export function useSocket() {
       ref.current.reset();
       ref.current.setError('تم طردك من الغرفة');
       setTimeout(() => ref.current.setError(null), 3500);
+      window.history.replaceState({}, '', window.location.pathname);
     });
 
     on('punishment-updated', (data) => ref.current.setPunishment(data));

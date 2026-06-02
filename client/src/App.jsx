@@ -19,11 +19,7 @@ export default function App() {
   const [pendingRoom] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
-    if (room) {
-      window.history.replaceState({}, '', window.location.pathname);
-      return room.toUpperCase();
-    }
-    return null;
+    return room ? room.toUpperCase() : null;
   });
 
   return (
