@@ -367,20 +367,6 @@ io.on('connection', socket => {
     broadcastGameState(room);
   });
 
-  socket.on('jump-in', ({ cardIndex }) => {
-    const room = getRoom(socket);
-    if (!room) return;
-    const clientId = cid(socket);
-    const result = room.jumpIn(clientId, cardIndex);
-    if (result.error) return socket.emit('error', { message: result.error });
-    io.to(room.code).emit('card-played', { playerId: clientId, card: result.card, jumpIn: true });
-    if (result.gameOver) {
-      io.to(room.code).emit('game-over', { winner: result.winner });
-    } else {
-      broadcastGameState(room);
-    }
-  });
-
   socket.on('seven-swap', ({ targetPlayerId: targetClientId }) => {
     const room = getRoom(socket);
     if (!room) return;

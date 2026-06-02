@@ -33,7 +33,7 @@ export function GameScreen({ socket }) {
   // Defined early so hooks can use it as a dependency without TDZ
   const isMyTurn = gameState?.currentPlayerId === playerId;
 
-  const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction } = useGame(socket);
+  const { playCard, drawCard, callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction } = useGame(socket);
   const sound = useSound();
 
   const prevIsMyTurnRef = useRef(false);
@@ -94,8 +94,7 @@ export function GameScreen({ socket }) {
   const currentPlayerName = players.find(p => p.id === gameState.currentPlayerId)?.name || '';
   const colorInfo = COLOR_META[gameState.currentColor] || COLOR_META.wild;
 
-  function handlePlay(cardIndex, card, isJumpIn) {
-    if (isJumpIn) { sound.jumpIn(); jumpIn(cardIndex); return; }
+  function handlePlay(cardIndex, card) {
     if (card.type === 'wild-color-roulette') {
       sound.playCard();
       playCard(cardIndex, null);

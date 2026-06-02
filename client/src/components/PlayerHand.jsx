@@ -103,22 +103,12 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     return false;
   }, [isMyTurn, drawPhaseFoundPlayable, lastDrawnCardId, pendingDraw, lastDrawValue, topCard, currentColor]);
 
-  const isJumpable = useCallback((card) => {
-    if (!topCard || isMyTurn) return false;
-    return (
-      card.color === topCard.color &&
-      card.type  === topCard.type &&
-      (card.type !== 'number' || card.value === topCard.value)
-    );
-  }, [topCard, isMyTurn]);
-
-  /* ── tap handler (unchanged logic) ── */
-  function handleTap(globalIdx, card, jumpable) {
-    const active = isPlayable(card) || jumpable;
-    if (!active) { setSelectedIdx(null); return; }
+  /* ── tap handler ── */
+  function handleTap(globalIdx, card) {
+    if (!isPlayable(card)) { setSelectedIdx(null); return; }
     if (selectedIdx === globalIdx) {
       setSelectedIdx(null);
-      onPlay(globalIdx, card, jumpable);
+      onPlay(globalIdx, card);
     } else {
       setSelectedIdx(globalIdx);
     }
@@ -248,11 +238,9 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                 {rowCards.map((card, i) => {
                   const globalIdx   = rowIndex * perRow + i;
                   const playable    = isPlayable(card);
-                  const jumpable    = isJumpable(card);
-                  const active      = playable || jumpable;
                   const selected    = selectedIdx === globalIdx;
                   const isDrawnCard = drawPhaseFoundPlayable && card.id === lastDrawnCardId;
-                  const dimmed      = isMyTurn && !active;
+                  const dimmed      = isMyTurn && !playable;
                   const glowColor   = GLOW[card.color] || GLOW.wild;
 
                   return (
@@ -280,13 +268,13 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                       style={{
                         position:    'relative',
                         flexShrink:  0,
-                        cursor:      active ? 'pointer' : 'default',
+                        cursor:      playable ? 'pointer' : 'default',
                         touchAction: 'manipulation',
                         width:       cardW,
                         height:      cardH,
                         marginLeft:  i === 0 ? 0 : -(cardW * 0.5),
                       }}
-                      onClick={() => handleTap(globalIdx, card, jumpable)}
+                      onClick={() => handleTap(globalIdx, card)}
                     >
                       {/* ── Selection ring ── */}
                       <AnimatePresence>
@@ -308,23 +296,6 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
                           />
                         )}
                       </AnimatePresence>
-
-                      {/* ── Jump-in pulse ── */}
-                      {jumpable && !selected && (
-                        <motion.div
-                          animate={{ opacity: [0.15, 0.85, 0.15], scale: [1, 1.04, 1] }}
-                          transition={{ repeat: Infinity, duration: 1.1, ease: 'easeInOut' }}
-                          style={{
-                            position:      'absolute',
-                            inset:         -3,
-                            borderRadius:  10,
-                            border:        '2px solid #F59E0B',
-                            background:    'rgba(245,158,11,0.08)',
-                            zIndex:        0,
-                            pointerEvents: 'none',
-                          }}
-                        />
-                      )}
 
                       {/* ── Drawn card pulse (must play) ── */}
                       {isDrawnCard && !selected && (

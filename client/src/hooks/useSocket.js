@@ -97,12 +97,7 @@ export function useSocket() {
       ref.current.setNotification({ type: 'roulette', text: `روليت! سحب ${drew} ورقة` });
       setTimeout(() => ref.current.setNotification(null), 2500);
     });
-    on('card-played', ({ jumpIn }) => {
-      if (jumpIn) {
-        ref.current.setNotification({ type: 'jumpin', text: 'اقتحام!' });
-        setTimeout(() => ref.current.setNotification(null), 1500);
-      }
-    });
+    on('card-played', () => {});
 
     on('game-restarted', (state) => {
       ref.current.setGameState(null);

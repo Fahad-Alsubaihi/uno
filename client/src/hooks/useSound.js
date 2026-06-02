@@ -59,13 +59,7 @@ export function useSound() {
     beep(1047, 0.4, 'square', 0.25, notes.length * 0.12);
   }, []);
 
-  const jumpIn = useCallback(() => {
-    beep(800, 0.05, 'square', 0.2);
-    beep(1000, 0.05, 'square', 0.2, 0.05);
-    beep(1200, 0.1, 'square', 0.25, 0.1);
-  }, []);
-
-  const swap = useCallback(() => {
+const swap = useCallback(() => {
     beep(440, 0.1, 'sine', 0.2);
     beep(660, 0.1, 'sine', 0.2, 0.12);
   }, []);
@@ -75,5 +69,5 @@ export function useSound() {
     beep(784, 0.14, 'sine', 0.24, 0.09);
   }, []);
 
-  return { playCard, drawCard, uno, error, win, jumpIn, swap, yourTurn };
+  return { playCard, drawCard, uno, error, win, swap, yourTurn };
 }

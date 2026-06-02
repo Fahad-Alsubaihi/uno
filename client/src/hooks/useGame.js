@@ -10,7 +10,6 @@ export function useGame(socket) {
   const passTurn          = useCallback(()     => socket.emit('pass-turn'), [socket]);
   const callUno           = useCallback(()     => socket.emit('call-uno'), [socket]);
   const catchUno          = useCallback((id)   => socket.emit('catch-uno',           { targetId: id }), [socket]);
-  const jumpIn            = useCallback((i)    => socket.emit('jump-in',             { cardIndex: i }), [socket]);
   const sevenSwap         = useCallback((id)   => socket.emit('seven-swap',          { targetPlayerId: id }), [socket]);
   const colorRoulettePick = useCallback((c)    => socket.emit('color-roulette-pick', { chosenColor: c }), [socket]);
   const rouletteDraw      = useCallback(()     => socket.emit('roulette-draw'), [socket]);
@@ -28,7 +27,7 @@ export function useGame(socket) {
 
   return {
     createRoom, joinRoom, startGame, playCard, drawCard, passTurn,
-    callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw,
+    callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw,
     setPunishmentMode, setSegments, approvePunishment, spinWheel,
     setRounds, startNextRound, restartGame, kickPlayer, sendReaction, grantSecondChance,
   };
