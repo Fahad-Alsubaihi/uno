@@ -8,7 +8,21 @@
       "Bash(docker network *)",
       "Bash(docker-compose up *)",
       "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile card game realtime multiplayer dark neon turn indicator\" --design-system -f markdown)",
-      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"animation pulse glow notification feedback\" --domain ux)"
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"animation pulse glow notification feedback\" --domain ux)",
+      "Bash(grep *)",
+      "PowerShell(Start-Sleep -Seconds 2; Invoke-RestMethod -Uri \"http://localhost:3001/health\" -TimeoutSec 5)",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:5173\" -TimeoutSec 5; \"Status: $\\($r.StatusCode\\)\" ; $r.Content.Substring\\(0,200\\))",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(start http://localhost:5173)",
+      "PowerShell(npm list *)",
+      "Bash(curl -s http://localhost:5173/assets/index-T5yPyCO9.js)",
+      "Bash(node -e ' *)",
+      "PowerShell(Get-Content *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174)",
+      "Read(//c/c/Users/FAlsu/OneDrive/Desktop/claude/uno-no-mercy/client/src/components/**)",
+      "Read(//c/c/Users/FAlsu/OneDrive/Desktop/claude/uno-no-mercy/client/**)",
+      "Bash(curl -s http://localhost:3001/health)"
     ]
   }
 }

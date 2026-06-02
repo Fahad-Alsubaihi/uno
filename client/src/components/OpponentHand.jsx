@@ -55,23 +55,18 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
         direction: 'rtl', position: 'relative',
       }}
     >
-      {/* Active turn pulse ring */}
-      <AnimatePresence>
-        {isCurrentPlayer && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: [0.3, 0.7, 0.3], scale: [1, 1.05, 1] }}
-            exit={{ opacity: 0 }}
-            transition={{ repeat: Infinity, duration: 1.0 }}
-            style={{
-              position: 'absolute', inset: -4,
-              borderRadius: 18,
-              border: '2px solid rgba(34,197,94,0.6)',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* Active turn pulse ring — always mounted, CSS animation avoids FM repeat:Infinity + exit bug */}
+      {isCurrentPlayer && (
+        <div
+          style={{
+            position: 'absolute', inset: -4,
+            borderRadius: 18,
+            border: '2px solid rgba(34,197,94,0.6)',
+            pointerEvents: 'none',
+            animation: 'ringPulse 1.0s ease-in-out infinite',
+          }}
+        />
+      )}
 
       {/* Away badge */}
       <AnimatePresence>
@@ -202,22 +197,18 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
         maxWidth: 90,
       }}>
-        <AnimatePresence>
-          {isCurrentPlayer && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ repeat: Infinity, duration: 0.75, ease: 'easeInOut' }}
-              style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: '#22C55E',
-                boxShadow: '0 0 10px #22C55E, 0 0 20px rgba(34,197,94,0.5)',
-                flexShrink: 0,
-              }}
-            />
-          )}
-        </AnimatePresence>
+        {/* Green dot — CSS animation, always conditional but no FM repeat:Infinity + exit */}
+        {isCurrentPlayer && (
+          <div
+            style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: '#22C55E',
+              boxShadow: '0 0 10px #22C55E, 0 0 20px rgba(34,197,94,0.5)',
+              flexShrink: 0,
+              animation: 'dotPulse 0.75s ease-in-out infinite',
+            }}
+          />
+        )}
         <div style={{
           fontFamily: 'var(--font-head)', fontSize: 11,
           color: isCurrentPlayer ? '#4ADE80' : isAway ? '#64748B' : '#64748B',

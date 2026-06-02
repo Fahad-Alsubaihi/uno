@@ -250,7 +250,7 @@ export function RulesModal({ open, onClose }) {
                 fontFamily: 'var(--font-body)',
               }}>
                 <div style={{ fontFamily: 'var(--font-head)', fontSize: 12, marginBottom: 5, color: '#C084FC' }}>
-                  نظام النقاط (اختياري)
+                  نظام النقاط 
                 </div>
                 أرقام 0–9: قيمتها الظاهرة · أكشن ملونة: 20 نقطة · وايلد: 50 نقطة
                 <br />

@@ -132,29 +132,20 @@ export function GameScreen({ socket }) {
       direction: 'rtl',
     }}>
       {/* ── MY-TURN SCREEN EDGE GLOW ── */}
+      {/* Uses CSS animation (not FM repeat:Infinity) to avoid Vite TDZ bug */}
       <AnimatePresence>
         {isMyTurn && !isMyRoulette && (
           <motion.div
             key="turn-glow"
             initial={{ opacity: 0 }}
-            animate={{
-              opacity: 1,
-              boxShadow: [
-                'inset 0 0 35px rgba(34,197,94,0.28), inset 0 0 0 3px rgba(34,197,94,0.55)',
-                'inset 0 0 70px rgba(34,197,94,0.50), inset 0 0 0 3px rgba(34,197,94,0.95)',
-                'inset 0 0 35px rgba(34,197,94,0.28), inset 0 0 0 3px rgba(34,197,94,0.55)',
-              ],
-            }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{
-              opacity: { duration: 0.35 },
-              boxShadow: { repeat: Infinity, duration: 1.15, ease: 'easeInOut' },
-            }}
+            transition={{ duration: 0.35 }}
             style={{
               position: 'fixed', inset: 0,
               pointerEvents: 'none',
               zIndex: 500,
-              borderRadius: 0,
+              animation: 'turnGlow 1.15s ease-in-out infinite',
             }}
           />
         )}
