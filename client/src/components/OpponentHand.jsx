@@ -9,50 +9,90 @@ const AVATAR_COLORS = [
 
 const AVATAR_GLOW = ['#EF4444', '#3B82F6', '#22C55E', '#F59E0B'];
 
+function EyeOffIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+      stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
 export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, playerIndex = 0, reaction }) {
   const cards = Math.max(0, player.cardCount);
   const displayCount = Math.min(cards, 8);
   const avatarGradient = AVATAR_COLORS[playerIndex % 4];
   const glowColor = AVATAR_GLOW[playerIndex % 4];
+  const isAway = player.away || false;
 
   return (
     <motion.div
       animate={{
         boxShadow: isCurrentPlayer
-          ? ['0 0 16px rgba(124,58,237,0.4)', '0 0 28px rgba(124,58,237,0.7)', '0 0 16px rgba(124,58,237,0.4)']
+          ? [
+              '0 0 16px rgba(34,197,94,0.35), 0 0 0 1.5px rgba(34,197,94,0.5)',
+              '0 0 32px rgba(34,197,94,0.65), 0 0 0 1.5px rgba(34,197,94,0.9)',
+              '0 0 16px rgba(34,197,94,0.35), 0 0 0 1.5px rgba(34,197,94,0.5)',
+            ]
           : 'none',
       }}
-      transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+      transition={{ repeat: Infinity, duration: 1.1, ease: 'easeInOut' }}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
         padding: '10px 14px 10px',
         borderRadius: 14,
         background: isCurrentPlayer
-          ? 'rgba(124,58,237,0.18)'
+          ? 'rgba(34,197,94,0.12)'
           : 'rgba(255,255,255,0.04)',
         border: isCurrentPlayer
-          ? '1.5px solid rgba(124,58,237,0.6)'
+          ? '1.5px solid rgba(34,197,94,0.55)'
           : '1px solid rgba(255,255,255,0.08)',
         minWidth: 90, maxWidth: 120,
         transition: 'background 0.3s, border-color 0.3s',
         direction: 'rtl', position: 'relative',
       }}
     >
-      {/* Current-turn pulse ring */}
+      {/* Active turn pulse ring */}
       <AnimatePresence>
         {isCurrentPlayer && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.04, 1] }}
+            animate={{ opacity: [0.3, 0.7, 0.3], scale: [1, 1.05, 1] }}
             exit={{ opacity: 0 }}
-            transition={{ repeat: Infinity, duration: 1.4 }}
+            transition={{ repeat: Infinity, duration: 1.0 }}
             style={{
-              position: 'absolute', inset: -3,
-              borderRadius: 17,
-              border: '2px solid rgba(124,58,237,0.5)',
+              position: 'absolute', inset: -4,
+              borderRadius: 18,
+              border: '2px solid rgba(34,197,94,0.6)',
               pointerEvents: 'none',
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Away badge */}
+      <AnimatePresence>
+        {isAway && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 480, damping: 26 }}
+            title="غائب"
+            style={{
+              position: 'absolute', top: 5, left: 5,
+              width: 20, height: 20, borderRadius: '50%',
+              background: 'rgba(245,158,11,0.18)',
+              border: '1.5px solid rgba(245,158,11,0.6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 10,
+            }}
+          >
+            <EyeOffIcon />
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -90,15 +130,17 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
       <div style={{ position: 'relative' }}>
         <motion.div
           animate={isCurrentPlayer
-            ? { boxShadow: [`0 0 8px ${glowColor}60`, `0 0 18px ${glowColor}`, `0 0 8px ${glowColor}60`] }
+            ? { boxShadow: [`0 0 8px ${glowColor}60`, `0 0 20px ${glowColor}`, `0 0 8px ${glowColor}60`] }
             : {}}
-          transition={{ repeat: Infinity, duration: 1.8 }}
+          transition={{ repeat: Infinity, duration: 1.1 }}
           style={{
             width: 38, height: 38, borderRadius: '50%',
             background: avatarGradient,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'var(--font-head)', fontSize: 15, color: '#fff',
             border: `2px solid ${glowColor}55`,
+            filter: isAway ? 'brightness(0.6) grayscale(0.4)' : 'none',
+            transition: 'filter 0.3s',
           }}
         >
           {player.name[0].toUpperCase()}
@@ -143,11 +185,7 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <span style={{
-              fontFamily: 'var(--font-head)',
-              fontSize: 7,
-              color: 'rgba(167,139,250,0.35)',
-            }}>UNO</span>
+            <span style={{ fontFamily: 'var(--font-head)', fontSize: 7, color: 'rgba(167,139,250,0.35)' }}>UNO</span>
           </motion.div>
         ))}
         {cards === 0 && (
@@ -159,15 +197,38 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
         )}
       </div>
 
-      {/* Name */}
+      {/* Name row — with pulsing dot */}
       <div style={{
-        fontFamily: 'var(--font-head)', fontSize: 11,
-        color: isCurrentPlayer ? '#A78BFA' : '#64748B',
-        letterSpacing: 1, maxWidth: 90,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        textAlign: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        maxWidth: 90,
       }}>
-        {player.name}
+        <AnimatePresence>
+          {isCurrentPlayer && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ repeat: Infinity, duration: 0.75, ease: 'easeInOut' }}
+              style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: '#22C55E',
+                boxShadow: '0 0 10px #22C55E, 0 0 20px rgba(34,197,94,0.5)',
+                flexShrink: 0,
+              }}
+            />
+          )}
+        </AnimatePresence>
+        <div style={{
+          fontFamily: 'var(--font-head)', fontSize: 11,
+          color: isCurrentPlayer ? '#4ADE80' : isAway ? '#64748B' : '#64748B',
+          letterSpacing: 1,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textAlign: 'center',
+          opacity: isAway ? 0.55 : 1,
+          transition: 'opacity 0.3s',
+        }}>
+          {player.name}
+        </div>
       </div>
 
       {/* UNO alert */}
@@ -188,9 +249,7 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
               style={{
                 fontFamily: 'var(--font-head)', fontSize: 11, letterSpacing: 1,
                 color: player.unoCalled ? '#22C55E' : '#F43F5E',
-                background: player.unoCalled
-                  ? 'rgba(34,197,94,0.15)'
-                  : 'rgba(244,63,94,0.18)',
+                background: player.unoCalled ? 'rgba(34,197,94,0.15)' : 'rgba(244,63,94,0.18)',
                 padding: '3px 10px', borderRadius: 20,
                 border: `1.5px solid ${player.unoCalled ? '#22C55E' : '#F43F5E'}`,
               }}

@@ -6,7 +6,9 @@
       "PowerShell(python \"C:\\\\Users\\\\FAlsu\\\\OneDrive\\\\Desktop\\\\claude\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"dark gaming card game UNO multiplayer intense\" --design-system -p \"UNO No Mercy\" -f markdown 2>&1)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\FAlsu\\\\OneDrive\\\\Desktop\\\\claude\\\\uno-no-mercy\" -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules|\\\\.claude' } | Select-Object -ExpandProperty FullName | Sort-Object)",
       "Bash(docker network *)",
-      "Bash(docker-compose up *)"
+      "Bash(docker-compose up *)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile card game realtime multiplayer dark neon turn indicator\" --design-system -f markdown)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"animation pulse glow notification feedback\" --domain ux)"
     ]
   }
 }

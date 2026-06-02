@@ -70,5 +70,10 @@ export function useSound() {
     beep(660, 0.1, 'sine', 0.2, 0.12);
   }, []);
 
-  return { playCard, drawCard, uno, error, win, jumpIn, swap };
+  const yourTurn = useCallback(() => {
+    beep(523, 0.07, 'sine', 0.18);
+    beep(784, 0.14, 'sine', 0.24, 0.09);
+  }, []);
+
+  return { playCard, drawCard, uno, error, win, jumpIn, swap, yourTurn };
 }

@@ -57,6 +57,13 @@ function roomCode() {
   return code;
 }
 
+// Touches room on every game-event access to keep lastActivityAt current
+function getRoom(socket) {
+  const room = rooms.get(socket.data.roomCode);
+  if (room) room.touch();
+  return room;
+}
+
 function broadcastGameState(room) {
   const base = room.getGameState();
   for (const player of room.players) {
@@ -136,6 +143,7 @@ io.on('connection', socket => {
 
     const room = rooms.get(code);
     if (!room) return socket.emit('error', { message: 'الغرفة غير موجودة أو انتهت صلاحيتها' });
+    room.touch();
 
     // If this clientId is already in the room (e.g. lobby refresh), reconnect them
     const existing = room.players.find(p => p.clientId === clientId);
@@ -184,6 +192,7 @@ io.on('connection', socket => {
       socket.emit('rejoin-failed', { reason: 'الغرفة غير موجودة' });
       return;
     }
+    room.touch();
 
     // Check active players AND eliminated players
     const existingPlayer =
@@ -232,7 +241,7 @@ io.on('connection', socket => {
 
   // ── Start game ──
   socket.on('start-game', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const clientId = cid(socket);
     if (room.hostClientId !== clientId)
@@ -247,7 +256,7 @@ io.on('connection', socket => {
 
   // ── Punishment events ──
   socket.on('set-punishment-mode', async ({ enabled }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const r = room.setPunishmentMode(cid(socket), enabled);
     if (r.error) return socket.emit('error', { message: r.error });
@@ -256,7 +265,7 @@ io.on('connection', socket => {
   });
 
   socket.on('set-segments', async ({ segments }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const r = room.setSegments(cid(socket), segments);
     if (r.error) return socket.emit('error', { message: r.error });
@@ -265,14 +274,14 @@ io.on('connection', socket => {
   });
 
   socket.on('approve-punishment', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     room.approvePunishment(cid(socket));
     io.to(room.code).emit('punishment-updated', room.getPunishmentState());
   });
 
   socket.on('spin-wheel', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.spinWheel(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
@@ -280,7 +289,7 @@ io.on('connection', socket => {
   });
 
   socket.on('set-rounds', async ({ rounds }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.setRounds(cid(socket), rounds);
     if (result.error) return socket.emit('error', { message: result.error });
@@ -290,7 +299,7 @@ io.on('connection', socket => {
   });
 
   socket.on('start-next-round', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.startNextRound(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
@@ -300,7 +309,7 @@ io.on('connection', socket => {
 
   // ── Game events ──
   socket.on('play-card', ({ cardIndex, chosenColor }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const clientId = cid(socket);
     const result = room.playCard(clientId, cardIndex, chosenColor);
@@ -323,7 +332,7 @@ io.on('connection', socket => {
   });
 
   socket.on('draw-card', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.drawCard(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
@@ -331,7 +340,7 @@ io.on('connection', socket => {
   });
 
   socket.on('pass-turn', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.passTurn(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
@@ -339,7 +348,7 @@ io.on('connection', socket => {
   });
 
   socket.on('call-uno', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const clientId = cid(socket);
     const result = room.callUno(clientId);
@@ -350,7 +359,7 @@ io.on('connection', socket => {
   });
 
   socket.on('catch-uno', ({ targetId }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.catchUno(cid(socket), targetId);
     if (result.error) return socket.emit('error', { message: result.error });
@@ -359,7 +368,7 @@ io.on('connection', socket => {
   });
 
   socket.on('jump-in', ({ cardIndex }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const clientId = cid(socket);
     const result = room.jumpIn(clientId, cardIndex);
@@ -373,7 +382,7 @@ io.on('connection', socket => {
   });
 
   socket.on('seven-swap', ({ targetPlayerId: targetClientId }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const clientId = cid(socket);
     const result = room.sevenSwap(clientId, targetClientId);
@@ -383,7 +392,7 @@ io.on('connection', socket => {
   });
 
   socket.on('color-roulette-pick', ({ chosenColor }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.colorRoulettePick(cid(socket), chosenColor);
     if (result.error) return socket.emit('error', { message: result.error });
@@ -391,7 +400,7 @@ io.on('connection', socket => {
   });
 
   socket.on('roulette-draw', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.rouletteDraw(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
@@ -401,7 +410,7 @@ io.on('connection', socket => {
 
   // ── Room management ──
   socket.on('restart-game', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const result = room.restartGame(cid(socket));
     if (result.error) return socket.emit('error', { message: result.error });
@@ -409,7 +418,7 @@ io.on('connection', socket => {
   });
 
   socket.on('grant-second-chance', () => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     if (room.lastWinner?.id !== cid(socket)) return socket.emit('error', { message: 'فقط الفائز يقدر يمنح فرصة' });
     if (!room.lastLoserId) return socket.emit('error', { message: 'لا يوجد خسران' });
@@ -419,8 +428,16 @@ io.on('connection', socket => {
     io.to(room.code).emit('second-chance-granted', { loserName: room.lastLoserName });
   });
 
+  socket.on('player-visibility', ({ away }) => {
+    const room = getRoom(socket);
+    if (!room) return;
+    room.setPlayerAway(cid(socket), away);
+    io.to(room.code).emit('room-updated', room.getState());
+    if (room.gameStarted) broadcastGameState(room);
+  });
+
   socket.on('send-reaction', ({ emoji }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     const clientId = cid(socket);
     const player = room.players.find(p => p.clientId === clientId);
@@ -429,7 +446,7 @@ io.on('connection', socket => {
   });
 
   socket.on('kick-player', ({ targetId: targetClientId }) => {
-    const room = rooms.get(socket.data.roomCode);
+    const room = getRoom(socket);
     if (!room) return;
     if (room.hostClientId !== cid(socket)) return socket.emit('error', { message: 'فقط المضيف' });
 
@@ -487,6 +504,22 @@ io.on('connection', socket => {
     }, 30000));
   });
 });
+
+// ── Room expiration cleanup (every 30 min) ──
+// NOTE: Redis stores settings only (segments/rounds/punishmentMode).
+// Live game state (hands, deck, discard pile, scores) is in-memory only.
+// If the server restarts mid-game, that game is lost. Persisting full game
+// state would require saving room.getGameState() to Redis on every mutation.
+const INACTIVITY_LIMIT_MS = 24 * 60 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, room] of rooms) {
+    if (now - room.lastActivityAt > INACTIVITY_LIMIT_MS) {
+      rooms.delete(code);
+      console.log(`[cleanup] deleted inactive room ${code}`);
+    }
+  }
+}, 30 * 60 * 1000);
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`UNO No Mercy → port ${PORT}`));

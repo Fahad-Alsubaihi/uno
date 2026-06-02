@@ -92,13 +92,31 @@ class GameRoom {
     this.inDrawPhase = false;
     this.drawPhaseFoundPlayable = false;
     this.lastDrawnCardId = null;
+    // Activity tracking for expiration
+    this.lastActivityAt = Date.now();
+  }
+
+  touch() {
+    this.lastActivityAt = Date.now();
+  }
+
+  get status() {
+    if (this.gameStarted || this.waitingForNextRound) return 'playing';
+    return 'waiting';
+  }
+
+  _transferHostIfNeeded(removedClientId) {
+    if (this.hostClientId !== removedClientId) return false;
+    const next = this.players[0];
+    if (next) { this.hostClientId = next.clientId; return true; }
+    return false;
   }
 
   // ── Player management ──
 
   addPlayer(clientId, socketId, name) {
     if (!this.hostClientId) this.hostClientId = clientId;
-    this.players.push({ clientId, id: socketId, name, hand: [], unoCalled: false, connected: true });
+    this.players.push({ clientId, id: socketId, name, hand: [], unoCalled: false, connected: true, away: false });
   }
 
   reconnectPlayer(clientId, newSocketId) {
@@ -106,7 +124,13 @@ class GameRoom {
     if (!p) return false;
     p.id = newSocketId;
     p.connected = true;
+    p.away = false;
     return true;
+  }
+
+  setPlayerAway(clientId, away) {
+    const p = this.players.find(p => p.clientId === clientId);
+    if (p) p.away = !!away;
   }
 
   disconnectPlayer(clientId) {
@@ -126,6 +150,7 @@ class GameRoom {
       if (idx < this.currentPlayerIndex) this.currentPlayerIndex--;
       this.currentPlayerIndex = this.currentPlayerIndex % this.players.length;
     }
+    this._transferHostIfNeeded(clientId);
   }
 
   // ── Game start ──
@@ -730,7 +755,7 @@ class GameRoom {
   _startNewRound() {
     for (const ep of this.eliminatedPlayers) {
       if (!this.players.find(p => p.clientId === ep.clientId)) {
-        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: true });
+        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: true, away: false });
       }
     }
     this.eliminatedPlayers = [];
@@ -779,7 +804,7 @@ class GameRoom {
     // Restore all eliminated players back into the room
     for (const ep of this.eliminatedPlayers) {
       if (!this.players.find(p => p.clientId === ep.clientId)) {
-        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: false });
+        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: false, away: false });
       }
     }
     this.eliminatedPlayers = [];
@@ -810,7 +835,7 @@ class GameRoom {
     // Restore all eliminated players back into the room
     for (const ep of this.eliminatedPlayers) {
       if (!this.players.find(p => p.clientId === ep.clientId)) {
-        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: ep.connected ?? true });
+        this.players.push({ clientId: ep.clientId, id: ep.id, name: ep.name, hand: [], unoCalled: false, connected: ep.connected ?? true, away: false });
       }
     }
     // Ensure host stays at index 0
@@ -848,8 +873,10 @@ class GameRoom {
         cardCount: p.hand.length,
         unoCalled: p.unoCalled,
         connected: p.connected,
+        away: p.away || false,
       })),
       gameStarted: this.gameStarted,
+      status: this.status,
       totalRounds: this.totalRounds,
     };
   }
@@ -863,6 +890,7 @@ class GameRoom {
         cardCount: p.hand.length,
         unoCalled: p.unoCalled,
         connected: p.connected,
+        away: p.away || false,
       })),
       eliminatedPlayers: this.eliminatedPlayers.map(e => ({ id: e.clientId, name: e.name })),
       topCard,

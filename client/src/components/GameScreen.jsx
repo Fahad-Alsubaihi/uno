@@ -1,4 +1,4 @@
-import { useState, useEffect, createRef } from 'react';
+import { useState, useEffect, useRef, createRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
@@ -32,6 +32,25 @@ export function GameScreen({ socket }) {
   const { gameState, playerId, hostId, error, notification, roundResult, roomPlayers, setRoundResult, reactions } = useGameStore();
   const { playCard, drawCard, callUno, catchUno, jumpIn, sevenSwap, colorRoulettePick, rouletteDraw, startNextRound, sendReaction } = useGame(socket);
   const sound = useSound();
+
+  const prevIsMyTurnRef = useRef(false);
+
+  // Sound + vibration when turn starts
+  useEffect(() => {
+    if (isMyTurn && !prevIsMyTurnRef.current) {
+      sound.yourTurn();
+      navigator.vibrate?.([150, 50, 100]);
+    }
+    prevIsMyTurnRef.current = isMyTurn;
+  }, [isMyTurn]);
+
+  // Page Visibility API — broadcast away status to other players
+  useEffect(() => {
+    if (!socket) return;
+    const onVisibility = () => socket.emit('player-visibility', { away: document.hidden });
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [socket]);
 
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [pendingCardIndex, setPendingCardIndex] = useState(null);
@@ -112,6 +131,35 @@ export function GameScreen({ socket }) {
       overflow: 'visible', position: 'relative',
       direction: 'rtl',
     }}>
+      {/* ── MY-TURN SCREEN EDGE GLOW ── */}
+      <AnimatePresence>
+        {isMyTurn && !isMyRoulette && (
+          <motion.div
+            key="turn-glow"
+            initial={{ opacity: 0 }}
+            animate={{
+              opacity: 1,
+              boxShadow: [
+                'inset 0 0 35px rgba(34,197,94,0.28), inset 0 0 0 3px rgba(34,197,94,0.55)',
+                'inset 0 0 70px rgba(34,197,94,0.50), inset 0 0 0 3px rgba(34,197,94,0.95)',
+                'inset 0 0 35px rgba(34,197,94,0.28), inset 0 0 0 3px rgba(34,197,94,0.55)',
+              ],
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+              opacity: { duration: 0.35 },
+              boxShadow: { repeat: Infinity, duration: 1.15, ease: 'easeInOut' },
+            }}
+            style={{
+              position: 'fixed', inset: 0,
+              pointerEvents: 'none',
+              zIndex: 500,
+              borderRadius: 0,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       <ErrorToast message={error} />
       <Notification notification={notification} />
       <ColorPicker open={colorPickerOpen} onPick={handleColorPick} />
