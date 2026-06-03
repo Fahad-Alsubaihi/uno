@@ -79,6 +79,10 @@ function buildSvg(card, faceDown, w, h) {
     .replace(/(<svg[^>]*)\s+width="[^"]*"/, `$1 width="${w}"`)
     .replace(/(<svg[^>]*)\s+height="[^"]*"/, `$1 height="${h}"`);
 
+  // Crop the transparent horizontal padding that surrounds the card rect
+  // (number/action/wild SVGs have a 3px left + 5px right transparent gap in their 71×94 viewBox)
+  raw = raw.replace(/viewBox="0 0 71 94"/g, 'viewBox="3 0 63 94"');
+
   // Add preserveAspectRatio="none" so SVG fills the container without letterboxing
   if (!raw.includes('preserveAspectRatio')) {
     raw = raw.replace('<svg', '<svg preserveAspectRatio="none"');
