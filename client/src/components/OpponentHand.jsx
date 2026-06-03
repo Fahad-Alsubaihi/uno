@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import cardBackUrl from '../assets/cards/card_back.svg';
 
 const AVATAR_COLORS = [
   'linear-gradient(135deg, #EF4444, #991B1B)',
@@ -161,13 +162,11 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
               transform: `rotate(${(i - displayCount / 2) * 4}deg)`,
               zIndex: i,
               width: 36, height: 54, borderRadius: 6,
-              background: 'linear-gradient(135deg, #2D1B69, #7C3AED 50%, #2D1B69)',
-              border: '1.5px solid rgba(167,139,250,0.2)',
               boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
             }}
           >
-            <span style={{ fontFamily: 'var(--font-head)', fontSize: 7, color: 'rgba(167,139,250,0.35)' }}>UNO</span>
+            <img src={cardBackUrl} alt="" style={{ width: '100%', height: '100%', display: 'block' }} />
           </motion.div>
         ))}
         {cards === 0 && (
