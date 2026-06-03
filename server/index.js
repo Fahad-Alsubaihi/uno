@@ -322,6 +322,14 @@ io.on('connection', socket => {
     broadcastGameState(room);
   });
 
+  socket.on('set-lobby-spinner', ({ targetId }) => {
+    const room = getRoom(socket);
+    if (!room) return;
+    const result = room.setLobbySpinner(cid(socket), targetId);
+    if (result.error) return socket.emit('error', { message: result.error });
+    io.to(room.code).emit('lobby-wheel-open', { loser: result.loser, segments: room.segments });
+  });
+
   socket.on('start-tiebreaker', () => {
     const room = getRoom(socket);
     if (!room) return;

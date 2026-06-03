@@ -26,12 +26,13 @@ export function useGame(socket) {
   const grantSecondChance   = useCallback(()      => socket.emit('grant-second-chance'), [socket]);
   const startTiebreaker     = useCallback(()      => socket.emit('start-tiebreaker'), [socket]);
   const callTie             = useCallback(()      => socket.emit('call-tie'), [socket]);
+  const setLobbySpinner     = useCallback((id)    => socket.emit('set-lobby-spinner', { targetId: id }), [socket]);
 
   return {
     createRoom, joinRoom, startGame, playCard, drawCard, passTurn,
     callUno, catchUno, sevenSwap, colorRoulettePick, rouletteDraw,
     setPunishmentMode, setSegments, approvePunishment, spinWheel,
     setRounds, startNextRound, restartGame, kickPlayer, sendReaction, grantSecondChance,
-    startTiebreaker, callTie,
+    startTiebreaker, callTie, setLobbySpinner,
   };
 }

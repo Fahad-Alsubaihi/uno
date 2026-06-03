@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { PunishmentSetup } from './PunishmentSetup';
+import { PunishmentWheel } from './PunishmentWheel';
 import { clearSession } from '../utils/clientId';
 
 const AVATAR_GRADIENTS = [
@@ -47,7 +48,12 @@ function WaitingDots() {
 }
 
 export function LobbyScreen({ socket }) {
-  const { roomCode, roomPlayers, playerId, hostId, reset, punishment, setPunishment, totalRounds } = useGameStore();
+  const {
+    roomCode, roomPlayers, playerId, hostId, reset,
+    punishment, totalRounds,
+    loser, wheelResult, lobbyWheelOpen,
+    setLobbyWheelOpen, setWheelResult, setLoser,
+  } = useGameStore();
   const game = useGame(socket);
   const [setupOpen, setSetupOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -89,6 +95,12 @@ export function LobbyScreen({ socket }) {
   function togglePunishment() { game.setPunishmentMode(!punishment.enabled); }
   function handleApprove()    { game.approvePunishment(); }
 
+  function closeLobbyWheel() {
+    setLobbyWheelOpen(false);
+    setWheelResult(null);
+    setLoser(null);
+  }
+
   return (
     <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)', direction: 'rtl' }}>
     <div style={{
@@ -97,6 +109,17 @@ export function LobbyScreen({ socket }) {
       alignItems: 'center', justifyContent: 'center',
       padding: 24,
     }}>
+      <PunishmentWheel
+        open={lobbyWheelOpen}
+        segments={punishment?.segments || []}
+        wheelResult={wheelResult}
+        loser={loser}
+        winner={null}
+        playerId={playerId}
+        onSpin={() => game.spinWheel()}
+        onClose={closeLobbyWheel}
+        onGrantSecondChance={() => {}}
+      />
       <PunishmentSetup
         open={setupOpen} onClose={() => setSetupOpen(false)}
         segments={localSegs} onUpdateSegs={sendSegs} isHost={isHost} game={game}
@@ -423,6 +446,42 @@ export function LobbyScreen({ socket }) {
                     ✓ وافقت ({punishment.approvals?.length}/{punishment.totalPlayers || roomPlayers.length})
                   </div>
                 )}
+              {/* Lobby wheel — pick loser */}
+              {isHost && roomPlayers.length >= 2 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  style={{ width: '100%', marginTop: 4 }}
+                >
+                  <div style={{
+                    fontSize: 10, color: '#475569',
+                    fontFamily: 'var(--font-head)', letterSpacing: 2,
+                    marginBottom: 6,
+                  }}>
+                    دوّر العجلة الآن — اختر الخاسر
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {roomPlayers.map(p => (
+                      <motion.button
+                        key={p.id}
+                        whileHover={{ scale: 1.05, boxShadow: '0 0 14px rgba(239,68,68,0.5)' }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => game.setLobbySpinner(p.id)}
+                        style={{
+                          padding: '7px 14px',
+                          background: 'rgba(239,68,68,0.12)',
+                          border: '1px solid rgba(239,68,68,0.35)',
+                          borderRadius: 9, color: '#FCA5A5',
+                          fontFamily: 'var(--font-head)', fontSize: 12,
+                          cursor: 'pointer', letterSpacing: 1,
+                        }}
+                      >
+                        🎡 {p.name}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
               </motion.div>
             )}
           </AnimatePresence>

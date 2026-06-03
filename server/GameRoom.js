@@ -158,6 +158,8 @@ class GameRoom {
       if (notApproved.length > 0) return { error: `${notApproved[0].name} لم يوافق بعد` };
     }
     this.gameStarted = true;
+    this.currentSpinnerId = null;
+    this.currentSpinnerName = null;
     this.eliminatedPlayers = [];
     this.deck = shuffle(createDeck());
     this.discardPile = [];
@@ -759,6 +761,19 @@ class GameRoom {
     this._startNewRound();
     console.log(`[Starting Round ${this.currentRound}/${this.totalRounds}]`);
     return { ok: true };
+  }
+
+  setLobbySpinner(clientId, targetClientId) {
+    if (this.hostClientId !== clientId)  return { error: 'فقط المضيف' };
+    if (this.gameStarted)                return { error: 'اللعبة شغالة' };
+    if (!this.punishmentMode)            return { error: 'فعّل وضع العقوبات أولاً' };
+    const target = this.players.find(p => p.clientId === targetClientId);
+    if (!target) return { error: 'لاعب غير موجود' };
+    this.currentSpinnerId   = target.clientId;
+    this.currentSpinnerName = target.name;
+    this.wheelRetryCount    = 0;
+    this.wheelCumAngle      = 0;
+    return { ok: true, loser: { id: target.clientId, name: target.name } };
   }
 
   startTiebreaker(clientId) {

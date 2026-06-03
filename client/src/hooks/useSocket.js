@@ -72,6 +72,12 @@ export function useSocket() {
       ref.current.setTiebreakerPending(true);
     });
 
+    on('lobby-wheel-open', ({ loser }) => {
+      ref.current.setLoser(loser);
+      ref.current.setWheelResult(null);
+      ref.current.setLobbyWheelOpen(true);
+    });
+
     on('round-over', (data) => {
       ref.current.setRoundResult(data);
       if (data.punishmentMode && data.roundLoser) {
@@ -163,7 +169,7 @@ export function useSocket() {
        'game-state','game-over','player-eliminated','uno-called','uno-caught',
        'seven-swapped','roulette-resolved','card-played','punishment-updated',
        'wheel-result','round-over','round-started','rounds-updated','game-restarted',
-       'tiebreaker','kicked','reaction','second-chance-granted','error',
+       'tiebreaker','lobby-wheel-open','kicked','reaction','second-chance-granted','error',
       ].forEach(ev => socket.off(ev));
     };
   }, []);
