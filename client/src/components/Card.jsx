@@ -122,7 +122,7 @@ export function Card({
           ? '2.5px solid #fff'
           : isPlayable
             ? `2px solid ${glow}`
-            : '2px solid rgba(255,255,255,0.12)',
+            : '2px solid transparent',
         boxShadow: isPlayable
           ? `0 0 18px ${glow}60, 0 6px 18px rgba(0,0,0,0.5)`
           : '0 2px 8px rgba(0,0,0,0.45)',
