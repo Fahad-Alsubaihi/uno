@@ -32,7 +32,10 @@
       "Bash(taskkill /PID 27628 /F)",
       "PowerShell(Stop-Process *)",
       "PowerShell(Get-NetTCPConnection *)",
-      "Bash(curl -s http://localhost:5173)"
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }
