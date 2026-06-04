@@ -4,11 +4,6 @@ import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { useSound } from '../hooks/useSound';
 import { CardAnimationLayer } from '../pixi/CardAnimationLayer';
-
-export const deckRef    = createRef();
-export const discardRef = createRef();
-export const trayRef    = createRef();
-
 import { PlayerHand } from './PlayerHand';
 import { GameBoard } from './GameBoard';
 import { OpponentHand } from './OpponentHand';
@@ -20,6 +15,11 @@ import { CardGuide } from './CardGuide';
 import { RoundOverModal } from './RoundOverModal';
 import { PunishmentWheel } from './PunishmentWheel';
 import { TiebreakerModal } from './TiebreakerModal';
+
+// Module-level refs — declared after all imports to avoid Rollup TDZ
+export const deckRef    = createRef();
+export const discardRef = createRef();
+export const trayRef    = createRef();
 
 const COLOR_META = {
   red:    { hex: '#DC2626', glow: '#EF4444', label: 'أحمر' },
