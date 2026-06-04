@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import cardBackUrl from '../assets/cards/card_back.svg';
 
@@ -22,7 +23,7 @@ function EyeOffIcon() {
   );
 }
 
-export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, playerIndex = 0, reaction }) {
+export const OpponentHand = memo(function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, playerIndex = 0, reaction }) {
   const cards = Math.max(0, player.cardCount);
   const displayCount = Math.min(cards, 8);
   const avatarGradient = AVATAR_COLORS[playerIndex % 4];
@@ -258,4 +259,4 @@ export function OpponentHand({ player, isCurrentPlayer, onCatchUno, canCatch, pl
       </AnimatePresence>
     </div>
   );
-}
+});

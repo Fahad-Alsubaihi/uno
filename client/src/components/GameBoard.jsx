@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './Card';
 
@@ -5,7 +6,7 @@ const COLOR_RING = {
   red: '#DC2626', green: '#16A34A', blue: '#2563EB', yellow: '#D97706', wild: '#7C3AED',
 };
 
-export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand }) {
+export const GameBoard = memo(function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand }) {
   const { topCard, currentColor, pendingDraw, deckCount, direction, inDrawPhase, drawPhaseFoundPlayable } = gameState;
   const ringColor = COLOR_RING[currentColor] || '#7C3AED';
   // Can't draw if: found playable after drawing, OR already have a playable card (official rule)
@@ -228,4 +229,4 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand }) {
       </motion.div>
     </div>
   );
-}
+});

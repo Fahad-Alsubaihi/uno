@@ -1,13 +1,8 @@
-import { useState, useEffect, useRef, createRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { useSound } from '../hooks/useSound';
-
-// refs prepared for card-fly animation — attached to DOM in future steps
-export const deckRef    = createRef(); // deck pile in GameBoard
-export const discardRef = createRef(); // discard pile in GameBoard
-export const trayRef    = createRef(); // card tray in PlayerHand
 import { PlayerHand } from './PlayerHand';
 import { GameBoard } from './GameBoard';
 import { OpponentHand } from './OpponentHand';
@@ -31,13 +26,24 @@ const COLOR_META = {
 const EMOJIS = ['😂', '😤', '🔥', '💀', '😱', '👏', '🤡', '😈'];
 
 export function GameScreen({ socket }) {
-  const {
-    gameState, playerId, hostId, error, notification, roundResult, roomPlayers,
-    setRoundResult, reactions,
-    punishment, loser, showWheel, wheelResult,
-    setShowWheel, setLoser, setWheelResult,
-    tiebreakerPending, finalScores,
-  } = useGameStore();
+  const gameState         = useGameStore(s => s.gameState);
+  const playerId          = useGameStore(s => s.playerId);
+  const hostId            = useGameStore(s => s.hostId);
+  const error             = useGameStore(s => s.error);
+  const notification      = useGameStore(s => s.notification);
+  const roundResult       = useGameStore(s => s.roundResult);
+  const roomPlayers       = useGameStore(s => s.roomPlayers);
+  const reactions         = useGameStore(s => s.reactions);
+  const punishment        = useGameStore(s => s.punishment);
+  const loser             = useGameStore(s => s.loser);
+  const showWheel         = useGameStore(s => s.showWheel);
+  const wheelResult       = useGameStore(s => s.wheelResult);
+  const tiebreakerPending = useGameStore(s => s.tiebreakerPending);
+  const finalScores       = useGameStore(s => s.finalScores);
+  const setRoundResult    = useGameStore(s => s.setRoundResult);
+  const setShowWheel      = useGameStore(s => s.setShowWheel);
+  const setLoser          = useGameStore(s => s.setLoser);
+  const setWheelResult    = useGameStore(s => s.setWheelResult);
   // Defined early so hooks can use it as a dependency without TDZ
   const isMyTurn = gameState?.currentPlayerId === playerId;
 

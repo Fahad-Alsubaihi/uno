@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card } from './Card';
@@ -39,7 +40,7 @@ function calcLayout(winW) {
 /* ─────────────────────────────────────────────
    PlayerHand
 ───────────────────────────────────────────── */
-export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
+export const PlayerHand = memo(function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
   const topCard                = gameState?.topCard;
   const currentColor           = gameState?.currentColor;
   const pendingDraw            = gameState?.pendingDraw   || 0;
@@ -71,11 +72,6 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     setUnoPressed(false);
     setHiddenCardId(null);
   }, [hand.length]);
-
-  /* ── confirm ref is mounted ── */
-  useEffect(() => {
-    console.log('trayRef ready:', trayRef.current);
-  }, []);
 
   /* ── card dimensions & layout ── */
   const { cardW, cardH, perRow, peek } = useMemo(() => calcLayout(winW), [winW]);
@@ -475,4 +471,4 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
       </div>
     </div>
   );
-}
+});
