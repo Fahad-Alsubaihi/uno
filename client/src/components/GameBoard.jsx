@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './Card';
 
@@ -5,11 +6,29 @@ const COLOR_RING = {
   red: '#DC2626', green: '#16A34A', blue: '#2563EB', yellow: '#D97706', wild: '#7C3AED',
 };
 
+// Fixed scatter positions for the last 3 played cards peeking behind the top card
+const SCATTER = [
+  { rotate: -8,  x:  4, y:  1, opacity: 0.82 },
+  { rotate:  13, x: -5, y:  2, opacity: 0.65 },
+  { rotate: -17, x:  7, y: -2, opacity: 0.48 },
+];
+
 export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deckRef, discardRef }) {
   const { topCard, currentColor, pendingDraw, deckCount, direction, inDrawPhase, drawPhaseFoundPlayable } = gameState;
   const ringColor = COLOR_RING[currentColor] || '#7C3AED';
-  // Can't draw if: found playable after drawing, OR already have a playable card (official rule)
   const canDraw = isMyTurn && !drawPhaseFoundPlayable && (!hasPlayableInHand || inDrawPhase || pendingDraw > 0);
+
+  // Keep a short history of previously played cards so their edges peek out
+  const [discardHistory, setDiscardHistory] = useState([]);
+  const prevTopRef = useRef(null);
+
+  useEffect(() => {
+    if (!topCard) return;
+    if (prevTopRef.current && prevTopRef.current.id !== topCard.id) {
+      setDiscardHistory(h => [prevTopRef.current, ...h].slice(0, 3));
+    }
+    prevTopRef.current = topCard;
+  }, [topCard?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, direction: 'rtl', position: 'relative' }}>
@@ -200,18 +219,38 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deck
 
         {/* Discard pile */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div ref={discardRef} style={{ position: 'relative' }}>
-            {/* Shadow behind top card */}
+          {/* Fixed-size container so discardRef rect is always 80×120 */}
+          <div ref={discardRef} style={{ position: 'relative', width: 80, height: 120 }}>
+
+            {/* Drop shadow */}
             <div style={{
-              position: 'absolute', top: 5, left: -5,
+              position: 'absolute', top: 6, left: -5,
               width: 80, height: 120, borderRadius: 10,
               background: 'rgba(0,0,0,0.35)',
             }} />
+
+            {/* Previously played cards — scattered behind the current top card */}
+            {discardHistory.map((card, i) => {
+              const s = SCATTER[i] || SCATTER[SCATTER.length - 1];
+              return (
+                <motion.div
+                  key={card.id}
+                  style={{ position: 'absolute', top: 0, left: 0, zIndex: 3 - i }}
+                  animate={{ rotate: s.rotate, x: s.x, y: s.y, opacity: s.opacity }}
+                  initial={{ rotate: 0, x: 0, y: 0, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+                >
+                  <Card card={card} size="md" />
+                </motion.div>
+              );
+            })}
+
+            {/* Current top card — always on top */}
             <AnimatePresence mode="popLayout">
               {topCard && (
                 <motion.div
                   key={topCard.id}
-                  layoutId={topCard.id}
+                  style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}
                   initial={{ scale: 0.45, rotate: -25, opacity: 0 }}
                   animate={{ scale: 1, rotate: 0, opacity: 1 }}
                   exit={{ scale: 0.55, opacity: 0 }}
