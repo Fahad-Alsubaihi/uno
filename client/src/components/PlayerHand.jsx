@@ -39,7 +39,7 @@ function calcLayout(winW) {
 /* ─────────────────────────────────────────────
    PlayerHand
 ───────────────────────────────────────────── */
-export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
+export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayRef: trayRefProp }) {
   const topCard                = gameState?.topCard;
   const currentColor           = gameState?.currentColor;
   const pendingDraw            = gameState?.pendingDraw   || 0;
@@ -55,8 +55,9 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno }) {
     typeof window !== 'undefined' ? window.innerWidth : 390
   );
 
-  // ref for future card-fly animation
-  const trayRef = useRef(null);
+  // use prop ref if provided (for Pixi animation layer), else local fallback
+  const localTrayRef = useRef(null);
+  const trayRef = trayRefProp ?? localTrayRef;
 
   /* ── window resize ── */
   useEffect(() => {

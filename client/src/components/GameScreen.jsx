@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { useSound } from '../hooks/useSound';
+import { CardAnimationLayer } from '../pixi/CardAnimationLayer';
 
-// refs prepared for card-fly animation — attached to DOM in future steps
-export const deckRef    = createRef(); // deck pile in GameBoard
-export const discardRef = createRef(); // discard pile in GameBoard
-export const trayRef    = createRef(); // card tray in PlayerHand
+export const deckRef    = createRef();
+export const discardRef = createRef();
+export const trayRef    = createRef();
+
 import { PlayerHand } from './PlayerHand';
 import { GameBoard } from './GameBoard';
 import { OpponentHand } from './OpponentHand';
@@ -45,6 +46,7 @@ export function GameScreen({ socket }) {
   const sound = useSound();
 
   const prevIsMyTurnRef = useRef(false);
+  const opponentsRef    = useRef(null);
 
   // Sound + vibration when turn starts
   useEffect(() => {
@@ -394,27 +396,33 @@ export function GameScreen({ socket }) {
       </div>
 
       {/* ── OPPONENTS ── */}
-      <div style={{
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        gap: 8, padding: '8px 12px', flexShrink: 0,
-        flexWrap: 'wrap',
-      }}>
+      <div
+        ref={opponentsRef}
+        style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          gap: 8, padding: '8px 12px', flexShrink: 0,
+          flexWrap: 'wrap',
+        }}
+      >
         {opponents.map((opp, idx) => (
-          <OpponentHand
-            key={opp.id}
-            player={opp}
-            playerIndex={idx + 1}
-            isCurrentPlayer={!isMyTurn && gameState.currentPlayerId === opp.id}
-            onCatchUno={catchUno}
-            canCatch={true}
-            reaction={reactions[opp.id] || null}
-          />
+          <div key={opp.id} data-opp-idx={idx}>
+            <OpponentHand
+              player={opp}
+              playerIndex={idx + 1}
+              isCurrentPlayer={!isMyTurn && gameState.currentPlayerId === opp.id}
+              onCatchUno={catchUno}
+              canCatch={true}
+              reaction={reactions[opp.id] || null}
+            />
+          </div>
         ))}
       </div>
 
       {/* ── BOARD ── */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
         <GameBoard
+          deckRef={deckRef}
+          discardRef={discardRef}
           gameState={gameState}
           isMyTurn={(isMyTurn && !isMyRoulette) || rouletteDrawing}
           onDraw={handleDraw}
@@ -489,6 +497,7 @@ export function GameScreen({ socket }) {
         paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
       }}>
         <PlayerHand
+          trayRef={trayRef}
           hand={myHand}
           isMyTurn={isMyTurn && !isMyRoulette && !rouletteDrawing}
           gameState={gameState}
@@ -496,6 +505,15 @@ export function GameScreen({ socket }) {
           onCallUno={handleUno}
         />
       </div>
+
+      {/* ── PIXI ANIMATION LAYER ── */}
+      <CardAnimationLayer
+        deckRef={deckRef}
+        discardRef={discardRef}
+        trayRef={trayRef}
+        opponentsRef={opponentsRef}
+        gameState={gameState}
+      />
 
       {/* Roulette hint */}
       <AnimatePresence>

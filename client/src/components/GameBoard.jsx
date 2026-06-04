@@ -5,7 +5,7 @@ const COLOR_RING = {
   red: '#DC2626', green: '#16A34A', blue: '#2563EB', yellow: '#D97706', wild: '#7C3AED',
 };
 
-export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand }) {
+export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deckRef, discardRef }) {
   const { topCard, currentColor, pendingDraw, deckCount, direction, inDrawPhase, drawPhaseFoundPlayable } = gameState;
   const ringColor = COLOR_RING[currentColor] || '#7C3AED';
   // Can't draw if: found playable after drawing, OR already have a playable card (official rule)
@@ -58,6 +58,7 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand }) {
         {/* Deck */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <motion.div
+            ref={deckRef}
             whileHover={canDraw ? { y: -6, scale: 1.06 } : {}}
             whileTap={canDraw ? { scale: 0.95 } : {}}
             onClick={canDraw ? onDraw : undefined}
@@ -199,7 +200,7 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand }) {
 
         {/* Discard pile */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div style={{ position: 'relative' }}>
+          <div ref={discardRef} style={{ position: 'relative' }}>
             {/* Shadow behind top card */}
             <div style={{
               position: 'absolute', top: 5, left: -5,
