@@ -228,13 +228,22 @@ export const CardAnimationLayer = forwardRef(function CardAnimationLayer(
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Flying card state helpers
-  const addFly = useCallback((cfg) => {
-    const id = ++_flySeq;
-    setFlies(f => [...f, { ...cfg, id }]);
+  const removeFly = useCallback((id) => {
+    setFlies(f => {
+      const fly = f.find(x => x.id === id);
+      if (fly?._fallback) clearTimeout(fly._fallback);
+      return f.filter(x => x.id !== id);
+    });
   }, []);
 
-  const removeFly = useCallback((id) => {
-    setFlies(f => f.filter(x => x.id !== id));
+  const addFly = useCallback((cfg) => {
+    const id = ++_flySeq;
+    // Safety net: remove after 1.5 s even if onComplete never fires
+    const _fallback = setTimeout(() => {
+      cfg.onLand?.();
+      setFlies(f => f.filter(x => x.id !== id));
+    }, 1500);
+    setFlies(f => [...f, { ...cfg, id, _fallback }]);
   }, []);
 
   // Opponent DOM rect by flat index
@@ -408,6 +417,7 @@ export const CardAnimationLayer = forwardRef(function CardAnimationLayer(
           faceDown={fly.faceDown}
           flipOnArrive={fly.flipOnArrive ?? false}
           onComplete={() => {
+            if (fly._fallback) clearTimeout(fly._fallback);
             removeFly(fly.id);
             fly.onLand?.();
           }}

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 // ── Load all card SVGs as raw strings (Vite 5) ──────────────────────────────
@@ -49,8 +49,7 @@ function svgPath(card) {
 
 // ── Make all id/url(#) unique to avoid DOM conflicts ─────────────────────────
 let _uid = 0;
-function uniquifyIds(svg) {
-  const uid = ++_uid;
+function uniquifyIds(svg, uid) {
   const ids = new Set();
   svg.replace(/\bid="([^"]+)"/g, (_, id) => ids.add(id));
   return svg
@@ -59,7 +58,7 @@ function uniquifyIds(svg) {
 }
 
 // ── Build the final SVG string ───────────────────────────────────────────────
-function buildSvg(card, faceDown, w, h) {
+function buildSvg(card, faceDown, w, h, uid) {
   let raw;
   if (faceDown) {
     raw = SVG_RAW['../assets/cards/card_back.svg'] || '';
@@ -74,25 +73,21 @@ function buildSvg(card, faceDown, w, h) {
   }
   if (!raw) return '';
 
-  // Scale SVG to exact card dimensions (stretch to fill — ratios are close)
   raw = raw
     .replace(/(<svg[^>]*)\s+width="[^"]*"/, `$1 width="${w}"`)
     .replace(/(<svg[^>]*)\s+height="[^"]*"/, `$1 height="${h}"`);
 
-  // Crop the transparent horizontal padding that surrounds the card rect
-  // (number/action/wild SVGs have a 3px left + 5px right transparent gap in their 71×94 viewBox)
   raw = raw.replace(/viewBox="0 0 71 94"/g, 'viewBox="3 0 63 94"');
 
-  // Add preserveAspectRatio="none" so SVG fills the container without letterboxing
   if (!raw.includes('preserveAspectRatio')) {
     raw = raw.replace('<svg', '<svg preserveAspectRatio="none"');
   }
 
-  return uniquifyIds(raw);
+  return uniquifyIds(raw, uid);
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export function Card({
+export const Card = memo(function Card({
   card, onClick, isPlayable = false, isSelected = false,
   size = 'md', customW, customH,
   faceDown = false, layoutId, animate, initial, exit,
@@ -102,9 +97,13 @@ export function Card({
   const isWild = card?.color === 'wild';
   const glow   = GLOW[card?.color] || GLOW.wild;
 
-  // Memoize SVG string; rebuild only when card identity or size changes
+  // Stable UID per component instance — never changes across re-renders
+  const uidRef  = useRef(null);
+  if (uidRef.current === null) uidRef.current = ++_uid;
+
+  // Rebuild SVG only when card identity or size changes
   const svgHtml = useMemo(
-    () => buildSvg(card, faceDown, w, h),
+    () => buildSvg(card, faceDown, w, h, uidRef.current),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [card?.type, card?.value, card?.color, faceDown, w, h],
   );
@@ -172,4 +171,4 @@ export function Card({
       )}
     </motion.div>
   );
-}
+});

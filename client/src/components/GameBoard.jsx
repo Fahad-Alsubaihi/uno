@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from './Card';
 
@@ -9,7 +9,7 @@ const COLOR_RING = {
 // The single previous card that peeks behind the top card
 const PEEK = { rotate: 10, x: 6, y: 4, opacity: 0.9 };
 
-export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deckRef, discardRef }) {
+export const GameBoard = memo(function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deckRef, discardRef }) {
   const { topCard, currentColor, pendingDraw, deckCount, direction, inDrawPhase, drawPhaseFoundPlayable } = gameState;
   const ringColor = COLOR_RING[currentColor] || '#7C3AED';
   const canDraw = isMyTurn && !drawPhaseFoundPlayable && (!hasPlayableInHand || inDrawPhase || pendingDraw > 0);
@@ -262,4 +262,15 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deck
       </motion.div>
     </div>
   );
-}
+}, (prev, next) => (
+  prev.isMyTurn          === next.isMyTurn &&
+  prev.hasPlayableInHand === next.hasPlayableInHand &&
+  prev.onDraw            === next.onDraw &&
+  prev.gameState?.topCard?.id            === next.gameState?.topCard?.id &&
+  prev.gameState?.currentColor           === next.gameState?.currentColor &&
+  prev.gameState?.pendingDraw            === next.gameState?.pendingDraw &&
+  prev.gameState?.deckCount              === next.gameState?.deckCount &&
+  prev.gameState?.direction              === next.gameState?.direction &&
+  prev.gameState?.inDrawPhase            === next.gameState?.inDrawPhase &&
+  prev.gameState?.drawPhaseFoundPlayable === next.gameState?.drawPhaseFoundPlayable
+));

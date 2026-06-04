@@ -1,5 +1,5 @@
+import { memo, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card } from './Card';
 
 /* ─────────────────────────────────────────────
@@ -39,7 +39,7 @@ function calcLayout(winW) {
 /* ─────────────────────────────────────────────
    PlayerHand
 ───────────────────────────────────────────── */
-export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayRef: trayRefProp }) {
+export const PlayerHand = memo(function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayRef: trayRefProp }) {
   const topCard                = gameState?.topCard;
   const currentColor           = gameState?.currentColor;
   const pendingDraw            = gameState?.pendingDraw   || 0;
@@ -499,4 +499,18 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
       </div>
     </div>
   );
-}
+}, (prev, next) => {
+  if (prev.hand.length !== next.hand.length) return false;
+  if (!prev.hand.every((c, i) => c.id === next.hand[i].id)) return false;
+  return (
+    prev.isMyTurn === next.isMyTurn &&
+    prev.onPlay   === next.onPlay   &&
+    prev.onCallUno === next.onCallUno &&
+    prev.gameState?.topCard?.id            === next.gameState?.topCard?.id &&
+    prev.gameState?.currentColor           === next.gameState?.currentColor &&
+    prev.gameState?.pendingDraw            === next.gameState?.pendingDraw &&
+    prev.gameState?.drawPhaseFoundPlayable === next.gameState?.drawPhaseFoundPlayable &&
+    prev.gameState?.lastDrawnCardId        === next.gameState?.lastDrawnCardId &&
+    prev.gameState?.inDrawPhase            === next.gameState?.inDrawPhase
+  );
+});

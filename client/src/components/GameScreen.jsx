@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createRef } from 'react';
+import { useState, useEffect, useRef, useCallback, createRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
@@ -32,13 +32,26 @@ const COLOR_META = {
 const EMOJIS = ['😂', '😤', '🔥', '💀', '😱', '👏', '🤡', '😈'];
 
 export function GameScreen({ socket }) {
-  const {
-    gameState, playerId, hostId, error, notification, roundResult, roomPlayers,
-    setRoundResult, reactions,
-    punishment, loser, showWheel, wheelResult,
-    setShowWheel, setLoser, setWheelResult,
-    tiebreakerPending, finalScores,
-  } = useGameStore();
+  // Individual selectors — each re-renders only when its own slice changes
+  const gameState         = useGameStore(s => s.gameState);
+  const playerId          = useGameStore(s => s.playerId);
+  const hostId            = useGameStore(s => s.hostId);
+  const error             = useGameStore(s => s.error);
+  const notification      = useGameStore(s => s.notification);
+  const roundResult       = useGameStore(s => s.roundResult);
+  const roomPlayers       = useGameStore(s => s.roomPlayers);
+  const reactions         = useGameStore(s => s.reactions);
+  const punishment        = useGameStore(s => s.punishment);
+  const loser             = useGameStore(s => s.loser);
+  const showWheel         = useGameStore(s => s.showWheel);
+  const wheelResult       = useGameStore(s => s.wheelResult);
+  const tiebreakerPending = useGameStore(s => s.tiebreakerPending);
+  const finalScores       = useGameStore(s => s.finalScores);
+  // Setters are stable references — selector prevents subscribing to full store
+  const setRoundResult = useGameStore(s => s.setRoundResult);
+  const setShowWheel   = useGameStore(s => s.setShowWheel);
+  const setLoser       = useGameStore(s => s.setLoser);
+  const setWheelResult = useGameStore(s => s.setWheelResult);
   // Defined early so hooks can use it as a dependency without TDZ
   const isMyTurn = gameState?.currentPlayerId === playerId;
 
@@ -117,16 +130,16 @@ export function GameScreen({ socket }) {
   const colorInfo = COLOR_META[gameState.currentColor] || COLOR_META.wild;
 
   // Start fly animation, fire socket only after animation lands
-  function startPlayAnim(fromRect, card, doPlay) {
+  const startPlayAnim = useCallback((fromRect, card, doPlay) => {
     if (fromRect && animLayerRef.current) {
       animLayerRef.current.animatePlay(fromRect, card, () => { sound.playCard(); doPlay(); });
     } else {
       sound.playCard();
       doPlay();
     }
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handlePlay(cardIndex, card, fromRect) {
+  const handlePlay = useCallback((cardIndex, card, fromRect) => {
     if (card.type === 'wild-color-roulette') {
       startPlayAnim(fromRect, card, () => playCard(cardIndex, null));
       return;
@@ -139,7 +152,7 @@ export function GameScreen({ socket }) {
     } else {
       startPlayAnim(fromRect, card, () => playCard(cardIndex, null));
     }
-  }
+  }, [startPlayAnim, playCard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleColorPick(color) {
     setColorPickerOpen(false);
@@ -153,12 +166,14 @@ export function GameScreen({ socket }) {
   }
 
   function handleRoulettePick(color) { sound.swap(); colorRoulettePick(color); }
-  function handleDraw() {
+
+  const handleDraw = useCallback(() => {
     sound.drawCard();
     animLayerRef.current?.animateDraw();
     if (rouletteDrawing) { rouletteDraw(); } else { drawCard(); }
-  }
-  function handleUno() { sound.uno(); callUno(); }
+  }, [rouletteDrawing, rouletteDraw, drawCard]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUno = useCallback(() => { sound.uno(); callUno(); }, [callUno]); // eslint-disable-line react-hooks/exhaustive-deps
   function handleSwap(targetId) { setSwapOpen(false); sound.swap(); sevenSwap(targetId); }
 
   return (

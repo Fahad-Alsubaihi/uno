@@ -52,6 +52,12 @@ export function FlyingCard({
     // Snap to start position immediately
     gsap.set(wrap, { x: sx - w / 2, y: sy - h / 2, rotation: 0, opacity: 1 });
 
+    // quickSetters — direct DOM writes per frame, ~3× faster than gsap.set()
+    const setX   = gsap.quickSetter(wrap, 'x', 'px');
+    const setY   = gsap.quickSetter(wrap, 'y', 'px');
+    const setRot = gsap.quickSetter(wrap, 'rotation', 'deg');
+    const setOpa = gsap.quickSetter(wrap, 'opacity');
+
     // ── After flight: optional flip reveal ────────────────────────────────
     function doFlipOrComplete() {
       if (!flipOnArrive) { onComplete?.(); return; }
@@ -98,18 +104,10 @@ export function FlyingCard({
       ease: 'power3.out',
       onUpdate() {
         const t  = obj.t;
-        const cx = qbez(t, sx, cpX, ex);
-        const cy = qbez(t, sy, cpY, ey);
-        // Spin peaks at ~50% then eases back
-        const spin = dir * 280 * t * (1 - t * 0.55);
-        // Fade out last 20% — only for non-flip cards (flip handles its own exit)
-        const fade = flipOnArrive ? 1 : (t > 0.8 ? Math.max(0, (1 - t) / 0.2) : 1);
-        gsap.set(wrap, {
-          x: cx - w / 2,
-          y: cy - h / 2,
-          rotation: spin,
-          opacity: fade,
-        });
+        setX(qbez(t, sx, cpX, ex) - w / 2);
+        setY(qbez(t, sy, cpY, ey) - h / 2);
+        setRot(dir * 280 * t * (1 - t * 0.55));
+        if (!flipOnArrive) setOpa(t > 0.8 ? Math.max(0, (1 - t) / 0.2) : 1);
       },
       onComplete: doFlipOrComplete,
     });
