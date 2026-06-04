@@ -51,9 +51,13 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
   const [selectedIdx,  setSelectedIdx]  = useState(null);
   const [unoPressed,   setUnoPressed]   = useState(false);
   const [hiddenCardId, setHiddenCardId] = useState(null);
+  const [spreadMap,    setSpreadMap]    = useState({});
   const [winW, setWinW] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 390
   );
+
+  // per-card DOM refs — used to capture positions for animation
+  const cardRefsMap = useRef(new Map());
 
   // use prop ref if provided (for Pixi animation layer), else local fallback
   const localTrayRef = useRef(null);
@@ -71,7 +75,18 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
     setSelectedIdx(null);
     setUnoPressed(false);
     setHiddenCardId(null);
+    setSpreadMap({});
   }, [hand.length]);
+
+  /* ── neighbor spread: immediate left/right in same row move apart ── */
+  useEffect(() => {
+    if (selectedIdx === null) { setSpreadMap({}); return; }
+    const col  = selectedIdx % perRow;
+    const m    = {};
+    if (col > 0) m[selectedIdx - 1] = -13;
+    if (col < perRow - 1 && selectedIdx + 1 < displayHand.length) m[selectedIdx + 1] = 13;
+    setSpreadMap(m);
+  }, [selectedIdx, perRow, displayHand.length]);
 
   /* ── confirm ref is mounted ── */
   useEffect(() => {
@@ -115,10 +130,16 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
   function handleTap(globalIdx, card) {
     if (!isPlayable(card)) { setSelectedIdx(null); return; }
     if (selectedIdx === globalIdx) {
+      // Capture position BEFORE React re-renders hide the card
+      const cardEl   = cardRefsMap.current.get(card.id);
+      const fromRect = cardEl?.getBoundingClientRect() ?? null;
+
       setSelectedIdx(null);
-      setHiddenCardId(card.id); // hide immediately before server responds
+      setHiddenCardId(card.id);
+      setSpreadMap({});
+
       const serverIdx = hand.findIndex(c => c.id === card.id);
-      onPlay(serverIdx, card);
+      onPlay(serverIdx, card, fromRect);   // fromRect passed for animation
     } else {
       setSelectedIdx(globalIdx);
     }
@@ -260,9 +281,14 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
                   return (
                     <motion.div
                       key={card.id}
+                      ref={el => {
+                        if (el) cardRefsMap.current.set(card.id, el);
+                        else    cardRefsMap.current.delete(card.id);
+                      }}
                       initial={{ y: 40, opacity: 0, scale: 0.85 }}
                       animate={{
                         y:       selected ? -LIFT : 0,
+                        x:       spreadMap[globalIdx] ?? 0,
                         scale:   selected ? 1.08 : 1,
                         opacity: 1,
                         zIndex:  selected ? 999 : rowZ * 10 + i,
@@ -275,6 +301,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
                       exit={{ y: -30, opacity: 0, scale: 0.8 }}
                       transition={{
                         y:       { type: 'spring', stiffness: 500, damping: 36 },
+                        x:       { type: 'spring', stiffness: 420, damping: 32 },
                         scale:   { type: 'spring', stiffness: 500, damping: 36 },
                         filter:  { duration: 0.15 },
                         opacity: { duration: 0.14, delay: Math.min(i * 0.008, 0.1) },
@@ -287,6 +314,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
                         width:       cardW,
                         height:      cardH,
                         marginLeft:  i === 0 ? 0 : -(cardW * 0.5),
+                        willChange:  'transform',
                       }}
                       onClick={() => handleTap(globalIdx, card)}
                     >

@@ -47,6 +47,11 @@ export function GameScreen({ socket }) {
 
   const prevIsMyTurnRef = useRef(false);
   const opponentsRef    = useRef(null);
+  const animLayerRef    = useRef(null);
+
+  // stored while wild card color picker is open
+  const [pendingFromRect, setPendingFromRect] = useState(null);
+  const [pendingPlayCard,  setPendingPlayCard]  = useState(null);
 
   // Sound + vibration when turn starts
   useEffect(() => {
@@ -111,31 +116,46 @@ export function GameScreen({ socket }) {
   const currentPlayerName = players.find(p => p.id === gameState.currentPlayerId)?.name || '';
   const colorInfo = COLOR_META[gameState.currentColor] || COLOR_META.wild;
 
-  function handlePlay(cardIndex, card) {
-    if (card.type === 'wild-color-roulette') {
+  // Start fly animation, fire socket only after animation lands
+  function startPlayAnim(fromRect, card, doPlay) {
+    if (fromRect && animLayerRef.current) {
+      animLayerRef.current.animatePlay(fromRect, card, () => { sound.playCard(); doPlay(); });
+    } else {
       sound.playCard();
-      playCard(cardIndex, null);
+      doPlay();
+    }
+  }
+
+  function handlePlay(cardIndex, card, fromRect) {
+    if (card.type === 'wild-color-roulette') {
+      startPlayAnim(fromRect, card, () => playCard(cardIndex, null));
       return;
     }
     if (card.color === 'wild') {
       setPendingCardIndex(cardIndex);
+      setPendingFromRect(fromRect ?? null);
+      setPendingPlayCard(card);
       setColorPickerOpen(true);
     } else {
-      sound.playCard();
-      playCard(cardIndex, null);
+      startPlayAnim(fromRect, card, () => playCard(cardIndex, null));
     }
   }
 
   function handleColorPick(color) {
     setColorPickerOpen(false);
-    sound.playCard();
-    playCard(pendingCardIndex, color);
+    const fr   = pendingFromRect;
+    const idx  = pendingCardIndex;
+    const card = pendingPlayCard;
+    setPendingFromRect(null);
+    setPendingPlayCard(null);
     setPendingCardIndex(null);
+    startPlayAnim(fr, card, () => playCard(idx, color));
   }
 
   function handleRoulettePick(color) { sound.swap(); colorRoulettePick(color); }
   function handleDraw() {
     sound.drawCard();
+    animLayerRef.current?.animateDraw();
     if (rouletteDrawing) { rouletteDraw(); } else { drawCard(); }
   }
   function handleUno() { sound.uno(); callUno(); }
@@ -508,6 +528,7 @@ export function GameScreen({ socket }) {
 
       {/* ── PIXI ANIMATION LAYER ── */}
       <CardAnimationLayer
+        ref={animLayerRef}
         deckRef={deckRef}
         discardRef={discardRef}
         trayRef={trayRef}

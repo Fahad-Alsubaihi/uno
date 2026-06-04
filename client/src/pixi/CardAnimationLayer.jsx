@@ -1,366 +1,327 @@
-import { useEffect, useRef } from 'react';
+﻿import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
+import { FlyingCard } from './FlyingCard';
 
-// ── Card dimensions matching the React UI ─────────────────────────────────
-const CW = 58;
-const CH = 87;
-const RADIUS = 8;
+// ── Placeholder card used for face-down flights (back always shown) ───────
+const BACK = { id: '__back__', color: 'wild', type: 'wild', value: 'wild' };
 
-// ── Pixi hex colors ───────────────────────────────────────────────────────
-const C = {
-  red:    0xDC2626,
-  green:  0x16A34A,
-  blue:   0x2563EB,
-  yellow: 0xD97706,
-  wild:   0x7C3AED,
-  back:   0x3B1A7A,
-};
-
-// ── Easing functions ──────────────────────────────────────────────────────
-function easeOutCubic(t)    { return 1 - Math.pow(1 - t, 3); }
-function easeInOutCubic(t)  { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
-function easeOutBack(t)     { const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); }
-
-// ── Helper: center of a DOM ref ───────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
 function rectOf(ref) {
   if (!ref?.current) return null;
-  const r = ref.current.getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  return ref.current.getBoundingClientRect();
 }
 
-// ── Helper: draw a card sprite (Graphics) ────────────────────────────────
-function makeCardSprite(color = 'back') {
-  const g   = new PIXI.Graphics();
-  const hex = C[color] ?? C.wild;
-
-  // shadow layer
-  g.roundRect(-CW / 2 + 3, -CH / 2 + 3, CW, CH, RADIUS);
-  g.fill({ color: 0x000000, alpha: 0.35 });
-
-  // card body
-  g.roundRect(-CW / 2, -CH / 2, CW, CH, RADIUS);
-  g.fill({ color: hex });
-
-  // highlight border
-  g.roundRect(-CW / 2 + 1, -CH / 2 + 1, CW - 2, CH - 2, RADIUS - 1);
-  g.stroke({ color: 0xffffff, alpha: 0.22, width: 1.5 });
-
-  // inner oval (UNO-style logo mark)
-  g.ellipse(0, 0, CW * 0.32, CH * 0.2);
-  g.fill({ color: 0xffffff, alpha: color === 'back' ? 0.12 : 0.2 });
-
-  return g;
+// Normalise a DOMRect to a plain object with a guaranteed minimum card size
+function ensureSize(r, minW = 46, minH = 69) {
+  if (!r) return null;
+  const w = Math.max(r.width,  minW);
+  const h = Math.max(r.height, minH);
+  return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, width: w, height: h };
 }
 
-// ── Quadratic bezier interpolation ───────────────────────────────────────
-function qbez(t, p0, cp, p1) {
-  const mt = 1 - t;
-  return mt * mt * p0 + 2 * mt * t * cp + t * t * p1;
+// Build a "centered rect" — same size as `sizeRef` but centered on `posRef`
+function centeredOn(posRef, sizeRef) {
+  const p = rectOf(posRef);
+  const s = sizeRef ? ensureSize(rectOf(sizeRef)) : null;
+  if (!p) return null;
+  const w = s?.width  ?? 58;
+  const h = s?.height ?? 87;
+  return { left: p.left + p.width / 2 - w / 2, top: p.top + p.height / 2 - h / 2, width: w, height: h };
 }
 
-// ── Fly a card from point A to B along a bezier arc ───────────────────────
-function flyCard(app, { from, to, color = 'back', duration = 0.55, delay = 0, onLand }) {
-  if (!app) return;
+let _flySeq = 0;
 
-  const card = makeCardSprite(color);
-  card.x = from.x;
-  card.y = from.y;
-  card.alpha = 0;
-  app.stage.addChild(card);
-
-  const cpX = (from.x + to.x) / 2 + (Math.random() - 0.5) * 80;
-  const cpY = Math.min(from.y, to.y) - 110 - Math.random() * 50;
-  const dir = to.x > from.x ? 1 : -1;
-  let elapsed = -delay;
-
-  const fn = (ticker) => {
-    elapsed += (ticker.deltaMS ?? ticker.deltaTime * (1000 / 60)) / 1000;
-    if (elapsed < 0) return;
-
-    const t = Math.min(elapsed / duration, 1);
-    const e = easeInOutCubic(t);
-
-    card.x       = qbez(e, from.x, cpX, to.x);
-    card.y       = qbez(e, from.y, cpY, to.y);
-    card.rotation = e * Math.PI * 2 * dir;
-    card.alpha    = t < 0.1 ? t * 10 : t > 0.82 ? (1 - t) / 0.18 : 1;
-
-    if (t >= 1) {
-      app.ticker.remove(fn);
-      app.stage.removeChild(card);
-      card.destroy();
-      onLand?.();
-    }
-  };
-
-  app.ticker.add(fn);
-  return () => { try { app.ticker.remove(fn); app.stage.removeChild(card); card.destroy(); } catch {} };
-}
-
-// ── Deal N cards from deck to tray with staggered delay ───────────────────
-function dealCards(app, from, to, count) {
-  for (let i = 0; i < count; i++) {
-    flyCard(app, { from, to, color: 'back', duration: 0.4, delay: i * 0.11 });
-  }
-}
-
-// ── Win particle explosion ─────────────────────────────────────────────────
-function winParticles(app) {
-  if (!app) return;
-  const cx = app.renderer.width / (window.devicePixelRatio || 1) / 2;
-  const cy = app.renderer.height / (window.devicePixelRatio || 1) / 2;
-  const colors = [0xF43F5E, 0x22C55E, 0x60A5FA, 0xFCD34D, 0xA78BFA, 0xFB923C];
-
-  for (let i = 0; i < 55; i++) {
-    const p = new PIXI.Graphics();
-    const w = 5 + Math.random() * 8;
-    const h = 5 + Math.random() * 8;
-    p.rect(-w / 2, -h / 2, w, h);
-    p.fill({ color: colors[Math.floor(Math.random() * colors.length)] });
-    p.x  = cx + (Math.random() - 0.5) * 80;
-    p.y  = cy + (Math.random() - 0.5) * 40;
-    app.stage.addChild(p);
-
-    const vx  = (Math.random() - 0.5) * 9;
-    const vy0 = -Math.random() * 13 - 5;
-    const rot = (Math.random() - 0.5) * 0.25;
+// ── Pixi particle helpers ─────────────────────────────────────────────────
+function pixi_winParticles(app) {
+  const W  = app.renderer.width  / (window.devicePixelRatio || 1);
+  const H  = app.renderer.height / (window.devicePixelRatio || 1);
+  const cx = W / 2;
+  const cy = H / 2;
+  const palette = [0xF43F5E, 0x22C55E, 0x60A5FA, 0xFCD34D, 0xA78BFA, 0xFB923C];
+  for (let i = 0; i < 60; i++) {
+    const g  = new PIXI.Graphics();
+    const pw = 4 + Math.random() * 10;
+    const ph = 4 + Math.random() * 10;
+    g.rect(-pw / 2, -ph / 2, pw, ph);
+    g.fill({ color: palette[i % palette.length] });
+    g.x = cx + (Math.random() - 0.5) * 100;
+    g.y = cy + (Math.random() - 0.5) * 50;
+    app.stage.addChild(g);
+    const vx = (Math.random() - 0.5) * 11;
+    const vy = -Math.random() * 15 - 4;
+    const rv = (Math.random() - 0.5) * 0.28;
     let t = 0;
-
-    const fn = (ticker) => {
-      t += (ticker.deltaMS ?? ticker.deltaTime * (1000 / 60)) / 1000;
-      p.x       += vx;
-      p.y       += vy0 + t * 18; // gravity
-      p.alpha    = Math.max(0, 1 - t / 1.4);
-      p.rotation += rot;
-      if (p.alpha <= 0) {
-        app.ticker.remove(fn);
-        try { app.stage.removeChild(p); p.destroy(); } catch {}
-      }
+    const fn = (tk) => {
+      t += (tk.deltaMS ?? tk.deltaTime * (1000 / 60)) / 1000;
+      g.x += vx; g.y += vy + t * 22; g.rotation += rv;
+      g.alpha = Math.max(0, 1 - t / 1.5);
+      if (g.alpha <= 0) { app.ticker.remove(fn); try { app.stage.removeChild(g); g.destroy(); } catch {} }
     };
     app.ticker.add(fn);
   }
 }
 
-// ── UNO light pulse on tray ───────────────────────────────────────────────
-function unoPulse(app, trayPos) {
-  if (!app || !trayPos) return;
+function pixi_unoPulse(app, trayR) {
+  if (!trayR) return;
+  const cx = trayR.left + trayR.width  / 2;
+  const cy = trayR.top  + trayR.height / 2;
   const ring = new PIXI.Graphics();
   app.stage.addChild(ring);
   let t = 0;
-
-  const fn = (ticker) => {
-    t += (ticker.deltaMS ?? ticker.deltaTime * (1000 / 60)) / 1000;
-    const progress = Math.min(t / 0.65, 1);
-    const radius   = 60 + progress * 80;
+  const fn = (tk) => {
+    t += (tk.deltaMS ?? tk.deltaTime * (1000 / 60)) / 1000;
+    const p = Math.min(t / 0.6, 1);
     ring.clear();
-    ring.circle(trayPos.x, trayPos.y, radius);
-    ring.stroke({ color: 0xF43F5E, alpha: (1 - progress) * 0.8, width: 3 });
-
-    if (progress >= 1) {
-      app.ticker.remove(fn);
-      try { app.stage.removeChild(ring); ring.destroy(); } catch {}
-    }
+    ring.circle(cx, cy, 50 + p * 100);
+    ring.stroke({ color: 0xF43F5E, alpha: (1 - p) * 0.85, width: 3.5 });
+    if (p >= 1) { app.ticker.remove(fn); try { app.stage.removeChild(ring); ring.destroy(); } catch {} }
   };
   app.ticker.add(fn);
 }
 
-// ── Stack shake: 3 quick nudges on discard pile ───────────────────────────
-function stackShake(app, discardPos) {
-  if (!app || !discardPos) return;
-  const orb = new PIXI.Graphics();
-  orb.circle(0, 0, CW / 2 + 8);
-  orb.stroke({ color: 0xEF4444, alpha: 0.9, width: 2.5 });
-  orb.x = discardPos.x;
-  orb.y = discardPos.y;
-  app.stage.addChild(orb);
+function pixi_stackShake(app, discardR) {
+  if (!discardR) return;
+  const cx = discardR.left + discardR.width  / 2;
+  const cy = discardR.top  + discardR.height / 2;
+  const gfx = new PIXI.Graphics();
+  gfx.circle(0, 0, 42);
+  gfx.stroke({ color: 0xEF4444, alpha: 0.9, width: 2.5 });
+  gfx.x = cx; gfx.y = cy;
+  app.stage.addChild(gfx);
   let t = 0;
-
-  const fn = (ticker) => {
-    t += (ticker.deltaMS ?? ticker.deltaTime * (1000 / 60)) / 1000;
-    orb.x       = discardPos.x + Math.sin(t * 48) * 8 * Math.max(0, 1 - t / 0.45);
-    orb.alpha   = Math.max(0, 1 - t / 0.5);
-    if (t >= 0.5) {
-      app.ticker.remove(fn);
-      try { app.stage.removeChild(orb); orb.destroy(); } catch {}
-    }
+  const fn = (tk) => {
+    t += (tk.deltaMS ?? tk.deltaTime * (1000 / 60)) / 1000;
+    gfx.x     = cx + Math.sin(t * 54) * 10 * Math.max(0, 1 - t / 0.4);
+    gfx.alpha = Math.max(0, 1 - t / 0.55);
+    if (t >= 0.55) { app.ticker.remove(fn); try { app.stage.removeChild(gfx); gfx.destroy(); } catch {} }
   };
   app.ticker.add(fn);
 }
 
-// ── Main component ─────────────────────────────────────────────────────────
-export function CardAnimationLayer({ deckRef, discardRef, trayRef, opponentsRef, gameState }) {
-  const containerRef  = useRef(null);
-  const appRef        = useRef(null);
-  const prevStateRef  = useRef(null);
-  const pendingRef    = useRef([]);   // queue of animations while app is initializing
+function pixi_eliminationBurst(app, posR) {
+  if (!posR) return;
+  const cx = posR.left + posR.width  / 2;
+  const cy = posR.top  + posR.height / 2;
+  for (let i = 0; i < 20; i++) {
+    const g = new PIXI.Graphics();
+    g.rect(-5, -8, 10, 16);
+    g.fill({ color: 0x475569 });
+    g.x = cx + (Math.random() - 0.5) * 60;
+    g.y = cy + (Math.random() - 0.5) * 40;
+    app.stage.addChild(g);
+    const vx = (Math.random() - 0.5) * 4;
+    const vy = Math.random() * 3 + 2;
+    let t = 0;
+    const fn = (tk) => {
+      t += (tk.deltaMS ?? tk.deltaTime * (1000 / 60)) / 1000;
+      g.x += vx; g.y += vy + t * 8; g.rotation += 0.12;
+      g.alpha = Math.max(0, 1 - t / 0.9);
+      if (g.alpha <= 0) { app.ticker.remove(fn); try { app.stage.removeChild(g); g.destroy(); } catch {} }
+    };
+    app.ticker.add(fn);
+  }
+}
 
-  // ── Initialize Pixi application ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// CardAnimationLayer
+// ─────────────────────────────────────────────────────────────────────────
+export const CardAnimationLayer = forwardRef(function CardAnimationLayer(
+  { deckRef, discardRef, trayRef, opponentsRef, gameState },
+  fwdRef,
+) {
+  const [flies, setFlies]   = useState([]);
+  const pixiDivRef          = useRef(null);
+  const appRef              = useRef(null);
+  const prevStateRef        = useRef(null);
+  const dealtRef            = useRef(false);   // avoid double-deal on strict-mode double-mount
+
+  // ── stable helpers ─────────────────────────────────────────────────────
+  const addFly = useCallback((cfg) => {
+    const id = ++_flySeq;
+    setFlies(f => [...f, { ...cfg, id }]);
+    return id;
+  }, []);
+
+  const removeFly = useCallback((id) => {
+    setFlies(f => f.filter(x => x.id !== id));
+  }, []);
+
+  function getOppRect(flatIdx) {
+    if (!opponentsRef?.current) return null;
+    const el = opponentsRef.current.querySelectorAll('[data-opp-idx]')[flatIdx];
+    return el ? ensureSize(el.getBoundingClientRect(), 60, 80) : null;
+  }
+
+  function pixiRun(fn) {
+    if (appRef.current) fn(appRef.current);
+  }
+
+  // ── Pixi init ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let destroyed = false;
+    const div = pixiDivRef.current;
+    if (!div) return;
+    let dead = false;
     const app = new PIXI.Application();
 
     app.init({
-      backgroundAlpha: 0,
-      antialias: true,
-      autoDensity: true,
+      backgroundAlpha: 0, antialias: true, autoDensity: true,
       resolution: window.devicePixelRatio || 1,
-      width:  window.innerWidth,
-      height: window.innerHeight,
+      width: window.innerWidth, height: window.innerHeight,
     }).then(() => {
-      if (destroyed) { app.destroy(true); return; }
-
-      app.canvas.style.position       = 'absolute';
-      app.canvas.style.top            = '0';
-      app.canvas.style.left           = '0';
-      app.canvas.style.width          = '100%';
-      app.canvas.style.height         = '100%';
-      app.canvas.style.pointerEvents  = 'none';
-      container.appendChild(app.canvas);
+      if (dead) { app.destroy(true); return; }
+      Object.assign(app.canvas.style, {
+        position: 'absolute', top: '0', left: '0', width: '100%', height: '100%',
+        pointerEvents: 'none',
+      });
+      div.appendChild(app.canvas);
       appRef.current = app;
-
-      // Drain queued animations
-      pendingRef.current.forEach(fn => fn(app));
-      pendingRef.current = [];
     }).catch(() => {});
 
-    // Resize canvas when window resizes
-    const onResize = () => {
-      if (!appRef.current) return;
-      appRef.current.renderer.resize(window.innerWidth, window.innerHeight);
-    };
+    const onResize = () => appRef.current?.renderer.resize(window.innerWidth, window.innerHeight);
     window.addEventListener('resize', onResize);
 
     return () => {
-      destroyed = true;
+      dead = true;
       window.removeEventListener('resize', onResize);
-      if (appRef.current) {
-        try { appRef.current.destroy(true, { children: true }); } catch {}
-        appRef.current = null;
-      }
+      try { appRef.current?.destroy(true, { children: true }); } catch {}
+      appRef.current = null;
     };
   }, []);
 
-  // ── Helper: run fn now or enqueue if app not ready ────────────────────────
-  function run(fn) {
-    if (appRef.current) {
-      fn(appRef.current);
-    } else {
-      pendingRef.current.push(fn);
-    }
-  }
+  // ── Imperative API: GameScreen calls these to trigger play / draw ──────
+  useImperativeHandle(fwdRef, () => ({
+    // Animate a card flying from player's hand to discard pile
+    // fromRect: DOMRect captured at tap time; card: card data; onLand: called after 380ms
+    animatePlay(fromRect, card, onLand) {
+      const toRect = ensureSize(rectOf(discardRef), fromRect?.width ?? 58, fromRect?.height ?? 87);
+      if (!fromRect || !toRect) { onLand?.(); return; }
+      addFly({ fromRect, toRect, card, faceDown: false, onLand });
+    },
 
-  // ── Get opponent element center by index ──────────────────────────────────
-  function getOpponentPos(idx) {
-    if (!opponentsRef?.current) return null;
-    const items = opponentsRef.current.querySelectorAll('[data-opp-idx]');
-    const el = items[idx];
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }
+    // Animate a face-down card flying from deck to player's tray
+    animateDraw() {
+      const from = ensureSize(rectOf(deckRef));
+      const to   = centeredOn(trayRef, deckRef);
+      if (!from || !to) return;
+      addFly({ fromRect: from, toRect: to, card: BACK, faceDown: true });
+    },
+  }), [addFly, discardRef, deckRef, trayRef]);
 
-  // ── Detect gameState changes and trigger animations ───────────────────────
+  // ── Watch gameState — auto-trigger opponent / deal / effect animations ─
   useEffect(() => {
     const prev = prevStateRef.current;
     const curr = gameState;
     prevStateRef.current = curr;
-
     if (!curr) return;
 
-    const deckPos    = rectOf(deckRef);
-    const discardPos = rectOf(discardRef);
-    const trayPos    = rectOf(trayRef);
+    const deckR    = ensureSize(rectOf(deckRef));
+    const discardR = ensureSize(rectOf(discardRef));
+    const trayR    = rectOf(trayRef);
 
-    // ── Deal: game just started (hand went from 0/null to 7) ─────────────────
-    if (!prev?.myHand?.length && (curr.myHand?.length ?? 0) >= 7) {
-      if (deckPos && trayPos) {
-        run(app => dealCards(app, deckPos, trayPos, curr.myHand.length));
-      }
-      return; // skip other checks on initial deal
-    }
-
-    // ── Card played by ME: topCard changed ───────────────────────────────────
-    if (prev?.topCard?.id !== curr.topCard?.id && curr.topCard && prev?.topCard) {
-      if (trayPos && discardPos) {
-        run(app => flyCard(app, {
-          from: trayPos,
-          to:   discardPos,
-          color: curr.topCard.color === 'wild' ? 'wild' : curr.topCard.color,
-          duration: 0.5,
-        }));
-      }
-    }
-
-    // ── Card drawn (my hand grew by 1) ────────────────────────────────────────
     const prevLen = prev?.myHand?.length ?? 0;
     const currLen = curr.myHand?.length ?? 0;
-    if (currLen === prevLen + 1 && deckPos && trayPos) {
-      run(app => flyCard(app, {
-        from: deckPos,
-        to:   trayPos,
-        color: 'back',
-        duration: 0.42,
-      }));
-    }
 
-    // ── UNO: I just hit 1 card ─────────────────────────────────────────────────
-    if (currLen === 1 && prevLen === 2 && trayPos) {
-      run(app => unoPulse(app, trayPos));
-    }
-
-    // ── Stack shake: pendingDraw increased ────────────────────────────────────
-    if ((curr.pendingDraw ?? 0) > (prev?.pendingDraw ?? 0) && discardPos) {
-      run(app => stackShake(app, discardPos));
-    }
-
-    // ── Win: first time winner appears ────────────────────────────────────────
-    if (!prev?.winner && curr.winner) {
-      run(app => winParticles(app));
-    }
-
-    // ── Opponent card played (count dropped) ──────────────────────────────────
-    const prevPlayers = prev?.players ?? [];
-    const currPlayers = curr.players ?? [];
-    currPlayers.forEach((p, idx) => {
-      const pp = prevPlayers.find(x => x.id === p.id);
-      if (!pp) return;
-      if (p.cardCount < pp.cardCount && discardPos) {
-        const oppPos = getOpponentPos(idx);
-        if (oppPos) {
-          run(app => flyCard(app, {
-            from: oppPos,
-            to:   discardPos,
-            color: curr.topCard?.color === 'wild' ? 'wild' : (curr.topCard?.color ?? 'back'),
-            duration: 0.5,
-          }));
+    // ── Deal animation: game start (hand was 0, now ≥ 2) ──────────────
+    if (!prevLen && currLen >= 2 && !dealtRef.current) {
+      dealtRef.current = true;
+      if (deckR && trayR) {
+        const fw = deckR.width, fh = deckR.height;
+        const tw = fw, th = fh;
+        const to = { left: trayR.left + trayR.width / 2 - tw / 2, top: trayR.top, width: tw, height: th };
+        for (let i = 0; i < currLen; i++) {
+          setTimeout(() => addFly({ fromRect: deckR, toRect: to, card: BACK, faceDown: true }), i * 95);
         }
-      } else if (p.cardCount > pp.cardCount && deckPos) {
-        const oppPos = getOpponentPos(idx);
-        if (oppPos) {
-          run(app => flyCard(app, {
-            from: deckPos,
-            to:   oppPos,
-            color: 'back',
-            duration: 0.42,
-          }));
+        // Deal to opponents
+        const myId = curr.myPlayerId ?? curr.players?.[0]?.id;
+          const me   = curr.players?.find(p => p.id === myId);
+        curr.players?.forEach((p, pi) => {
+          if (me && p.id === me.id) return;
+          const oppR = getOppRect(pi);
+          if (!oppR || !deckR) return;
+          const to2 = { left: oppR.left + oppR.width / 2 - fw / 2, top: oppR.top, width: fw, height: fh };
+          for (let j = 0; j < Math.min(p.cardCount ?? 7, 7); j++) {
+            setTimeout(() => addFly({ fromRect: deckR, toRect: to2, card: BACK, faceDown: true }), j * 95 + 45);
+          }
+        });
+      }
+    }
+
+    // ── UNO: hit 1 card ───────────────────────────────────────────────
+    if (currLen === 1 && prevLen === 2) {
+      pixiRun(app => pixi_unoPulse(app, trayR));
+    }
+
+    // ── Stack shake: pendingDraw grew ─────────────────────────────────
+    if ((curr.pendingDraw ?? 0) > (prev?.pendingDraw ?? 0)) {
+      pixiRun(app => pixi_stackShake(app, discardR));
+    }
+
+    // ── Win: first winner ─────────────────────────────────────────────
+    if (!prev?.winner && curr.winner) {
+      pixiRun(pixi_winParticles);
+    }
+
+    // ── Opponent play / draw ──────────────────────────────────────────
+    const prevPs = prev?.players ?? [];
+    const currPs = curr.players ?? [];
+    currPs.forEach((p, pi) => {
+      const pp = prevPs.find(x => x.id === p.id);
+      if (!pp) return;
+
+      if (p.cardCount < pp.cardCount && discardR) {
+        // Opponent played a card: fly from their position to discard
+        const oppR = getOppRect(pi);
+        if (oppR) {
+          const fw = 46, fh = 69;
+          const fr = { left: oppR.left + oppR.width / 2 - fw / 2, top: oppR.top + oppR.height / 2 - fh / 2, width: fw, height: fh };
+          addFly({ fromRect: fr, toRect: ensureSize(discardR, fw, fh), card: BACK, faceDown: true });
+        }
+      } else if (p.cardCount > pp.cardCount && deckR) {
+        // Opponent drew a card — skip if it's the initial deal
+        if (!prevLen && currLen >= 2) return;
+        const oppR = getOppRect(pi);
+        if (oppR) {
+          const fw = deckR.width, fh = deckR.height;
+          const to = { left: oppR.left + oppR.width / 2 - fw / 2, top: oppR.top + oppR.height / 2 - fh / 2, width: fw, height: fh };
+          addFly({ fromRect: deckR, toRect: to, card: BACK, faceDown: true });
         }
       }
     });
+
+    // ── Elimination: player left mid-game ─────────────────────────────
+    const elimId = prev && currPs.length < prevPs.length
+      ? prevPs.find(p => !currPs.find(x => x.id === p.id))
+      : null;
+    if (elimId) {
+      const pi  = prevPs.findIndex(x => x.id === elimId.id);
+      const opp = getOppRect(pi);
+      pixiRun(app => pixi_eliminationBurst(app, opp ?? deckR));
+    }
+
   }, [gameState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        position:      'fixed',
-        inset:         0,
-        pointerEvents: 'none',
-        zIndex:        9999,
-        overflow:      'hidden',
-      }}
-    />
+    <>
+      {/* Pixi canvas — particles & glow effects only */}
+      <div
+        ref={pixiDivRef}
+        style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9998, overflow: 'hidden' }}
+      />
+
+      {/* Portal flying cards — real Card components in transit */}
+      {flies.map(fly => (
+        <FlyingCard
+          key={fly.id}
+          fromRect={fly.fromRect}
+          toRect={fly.toRect}
+          card={fly.card}
+          faceDown={fly.faceDown}
+          onComplete={() => {
+            removeFly(fly.id);
+            fly.onLand?.();
+          }}
+        />
+      ))}
+    </>
   );
-}
+});

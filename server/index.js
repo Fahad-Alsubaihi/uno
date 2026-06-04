@@ -24,28 +24,40 @@ const disconnectTimers = new Map(); // `${code}:${clientId}` → timer
 
 function cid(socket) { return socketToClient.get(socket.id); }
 
-// Redis
-const redis = createClient({ url: 'redis://redis:6379' });
-redis.connect().catch(console.error);
+// Redis — graceful fallback when not available (local dev)
+const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
+const redis = createClient({ url: REDIS_URL });
+let redisOk = false;
+redis.connect()
+  .then(() => { redisOk = true; })
+  .catch(() => { console.warn('Redis unavailable — running without persistence'); });
+redis.on('error', () => { redisOk = false; });
 
 const TTL = 86400;
 
 async function saveRoomSettings(room) {
-  await redis.setEx(`room:${room.code}`, TTL, JSON.stringify({
-    code: room.code,
-    segments: room.segments,
-    totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
-    punishmentMode: room.punishmentMode,
-  }));
+  if (!redisOk) return;
+  try {
+    await redis.setEx(`room:${room.code}`, TTL, JSON.stringify({
+      code: room.code,
+      segments: room.segments,
+      totalRounds: room.totalRounds === Infinity ? '∞' : room.totalRounds,
+      punishmentMode: room.punishmentMode,
+    }));
+  } catch {}
 }
 
 async function loadRoomSettings(code) {
-  const data = await redis.get(`room:${code}`);
-  return data ? JSON.parse(data) : null;
+  if (!redisOk) return null;
+  try {
+    const data = await redis.get(`room:${code}`);
+    return data ? JSON.parse(data) : null;
+  } catch { return null; }
 }
 
 async function refreshRoom(code) {
-  await redis.expire(`room:${code}`, TTL);
+  if (!redisOk) return;
+  try { await redis.expire(`room:${code}`, TTL); } catch {}
 }
 
 function roomCode() {
