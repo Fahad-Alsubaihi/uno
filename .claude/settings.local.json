@@ -22,7 +22,10 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174)",
       "Read(//c/c/Users/FAlsu/OneDrive/Desktop/claude/uno-no-mercy/client/src/components/**)",
       "Read(//c/c/Users/FAlsu/OneDrive/Desktop/claude/uno-no-mercy/client/**)",
-      "Bash(curl -s http://localhost:3001/health)"
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
