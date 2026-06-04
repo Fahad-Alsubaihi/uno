@@ -6,12 +6,8 @@ const COLOR_RING = {
   red: '#DC2626', green: '#16A34A', blue: '#2563EB', yellow: '#D97706', wild: '#7C3AED',
 };
 
-// Fixed scatter positions for the last 3 played cards peeking behind the top card
-const SCATTER = [
-  { rotate: -8,  x:  4, y:  1, opacity: 0.82 },
-  { rotate:  13, x: -5, y:  2, opacity: 0.65 },
-  { rotate: -17, x:  7, y: -2, opacity: 0.48 },
-];
+// The single previous card that peeks behind the top card
+const PEEK = { rotate: 10, x: 6, y: 4, opacity: 0.9 };
 
 export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deckRef, discardRef }) {
   const { topCard, currentColor, pendingDraw, deckCount, direction, inDrawPhase, drawPhaseFoundPlayable } = gameState;
@@ -25,7 +21,7 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deck
   useEffect(() => {
     if (!topCard) return;
     if (prevTopRef.current && prevTopRef.current.id !== topCard.id) {
-      setDiscardHistory(h => [prevTopRef.current, ...h].slice(0, 3));
+      setDiscardHistory(h => [prevTopRef.current, ...h].slice(0, 1));
     }
     prevTopRef.current = topCard;
   }, [topCard?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -222,28 +218,26 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deck
           {/* Fixed-size container so discardRef rect is always 80×120 */}
           <div ref={discardRef} style={{ position: 'relative', width: 80, height: 120 }}>
 
-            {/* Drop shadow */}
+            {/* Deep drop shadow for pile depth */}
             <div style={{
-              position: 'absolute', top: 6, left: -5,
+              position: 'absolute', top: 8, left: -4,
               width: 80, height: 120, borderRadius: 10,
-              background: 'rgba(0,0,0,0.35)',
+              background: 'rgba(0,0,0,0.45)',
+              filter: 'blur(4px)',
             }} />
 
-            {/* Previously played cards — scattered behind the current top card */}
-            {discardHistory.map((card, i) => {
-              const s = SCATTER[i] || SCATTER[SCATTER.length - 1];
-              return (
-                <motion.div
-                  key={card.id}
-                  style={{ position: 'absolute', top: 0, left: 0, zIndex: 3 - i }}
-                  animate={{ rotate: s.rotate, x: s.x, y: s.y, opacity: s.opacity }}
-                  initial={{ rotate: 0, x: 0, y: 0, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 220, damping: 22 }}
-                >
-                  <Card card={card} size="md" />
-                </motion.div>
-              );
-            })}
+            {/* One previous card peeking from behind */}
+            {discardHistory[0] && (
+              <motion.div
+                key={discardHistory[0].id}
+                style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+                initial={{ rotate: 0, x: 0, y: 0, opacity: 1 }}
+                animate={{ rotate: PEEK.rotate, x: PEEK.x, y: PEEK.y, opacity: PEEK.opacity }}
+                transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+              >
+                <Card card={discardHistory[0]} size="md" />
+              </motion.div>
+            )}
 
             {/* Current top card — always on top */}
             <AnimatePresence mode="popLayout">
@@ -251,10 +245,10 @@ export function GameBoard({ gameState, isMyTurn, onDraw, hasPlayableInHand, deck
                 <motion.div
                   key={topCard.id}
                   style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}
-                  initial={{ scale: 0.45, rotate: -25, opacity: 0 }}
-                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                  exit={{ scale: 0.55, opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                  initial={{ scale: 0.5, rotate: -20, opacity: 0, y: -8 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.6, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 340, damping: 26 }}
                 >
                   <Card card={topCard} size="md" />
                 </motion.div>
