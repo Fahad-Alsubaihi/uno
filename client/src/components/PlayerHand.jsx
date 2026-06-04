@@ -78,22 +78,7 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
     setSpreadMap({});
   }, [hand.length]);
 
-  /* ── neighbor spread: immediate left/right in same row move apart ── */
-  useEffect(() => {
-    if (selectedIdx === null) { setSpreadMap({}); return; }
-    const col  = selectedIdx % perRow;
-    const m    = {};
-    if (col > 0) m[selectedIdx - 1] = -13;
-    if (col < perRow - 1 && selectedIdx + 1 < displayHand.length) m[selectedIdx + 1] = 13;
-    setSpreadMap(m);
-  }, [selectedIdx, perRow, displayHand.length]);
-
-  /* ── confirm ref is mounted ── */
-  useEffect(() => {
-    console.log('trayRef ready:', trayRef.current);
-  }, []);
-
-  /* ── card dimensions & layout ── */
+  /* ── card dimensions & layout — declared before effects that depend on them ── */
   const { cardW, cardH, perRow, peek } = useMemo(() => calcLayout(winW), [winW]);
   // Filter out the optimistically-hidden card for display only
   const displayHand = useMemo(
@@ -102,6 +87,16 @@ export function PlayerHand({ hand, isMyTurn, gameState, onPlay, onCallUno, trayR
   );
   const rows    = useMemo(() => buildRows(displayHand, perRow), [displayHand, perRow]);
   const numRows = rows.length || 1;
+
+  /* ── neighbor spread: immediate left/right in same row move apart ── */
+  useEffect(() => {
+    if (selectedIdx === null) { setSpreadMap({}); return; }
+    const col = selectedIdx % perRow;
+    const m   = {};
+    if (col > 0) m[selectedIdx - 1] = -13;
+    if (col < perRow - 1 && selectedIdx + 1 < displayHand.length) m[selectedIdx + 1] = 13;
+    setSpreadMap(m);
+  }, [selectedIdx, perRow, displayHand.length]);
 
   /*
     Row positioning (absolute inside rows-container):
