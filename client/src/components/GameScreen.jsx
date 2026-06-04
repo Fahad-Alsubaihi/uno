@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useGame } from '../hooks/useGame';
 import { useSound } from '../hooks/useSound';
-import { CardAnimationLayer } from '../pixi/CardAnimationLayer';
+import { CardAnimationLayer } from '../animation/CardAnimationLayer';
 import { PlayerHand } from './PlayerHand';
 import { GameBoard } from './GameBoard';
 import { OpponentHand } from './OpponentHand';
