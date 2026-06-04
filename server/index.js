@@ -69,6 +69,10 @@ function broadcastGameState(room) {
   for (const player of room.players) {
     io.to(player.id).emit('game-state', { ...base, myHand: player.hand });
   }
+  // Send spectator state to eliminated players still connected
+  for (const ep of room.eliminatedPlayers) {
+    if (ep.id) io.to(ep.id).emit('game-state', { ...base, myHand: [] });
+  }
 }
 
 function emitGameOver(room, winner) {
@@ -219,9 +223,33 @@ io.on('connection', socket => {
       return;
     }
 
-    // If eliminated, restore them to active players before reconnecting
     const isEliminated = !room.players.find(p => p.clientId === clientId);
+    const gameActive   = room.gameStarted || room.waitingForNextRound;
+
+    if (isEliminated && gameActive) {
+      // Game is active — keep them eliminated, spectate only
+      room.spectatePlayer(clientId, socket.id);
+
+      const timerKey = `${code}:${clientId}`;
+      const timer = disconnectTimers.get(timerKey);
+      if (timer) { clearTimeout(timer); disconnectTimers.delete(timerKey); }
+
+      socketToClient.set(socket.id, clientId);
+      clientToSocket.set(clientId, socket.id);
+      socket.join(code);
+      socket.data.roomCode = code;
+
+      socket.emit('room-joined', { roomCode: code, playerId: clientId });
+      socket.emit('punishment-updated', room.getPunishmentState());
+      socket.emit('game-started');
+      const base = room.getGameState();
+      socket.emit('game-state', { ...base, myHand: [] });
+      await refreshRoom(code);
+      return;
+    }
+
     if (isEliminated) {
+      // Lobby: restore eliminated player so they can play next game
       room.players.push({ clientId: existingPlayer.clientId, id: existingPlayer.id, name: existingPlayer.name, hand: [], unoCalled: false, connected: false });
       room.eliminatedPlayers = room.eliminatedPlayers.filter(p => p.clientId !== clientId);
     }
@@ -245,7 +273,6 @@ io.on('connection', socket => {
       socket.emit('game-started');
       const base = room.getGameState();
       socket.emit('game-state', { ...base, myHand: existingPlayer.hand });
-      // Notify all connected players that this player reconnected
       io.to(code).emit('room-updated', room.getState());
     } else {
       io.to(code).emit('room-updated', room.getState());

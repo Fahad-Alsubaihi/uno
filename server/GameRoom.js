@@ -125,6 +125,11 @@ class GameRoom {
     return true;
   }
 
+  spectatePlayer(clientId, newSocketId) {
+    const ep = this.eliminatedPlayers.find(p => p.clientId === clientId);
+    if (ep) ep.id = newSocketId;
+  }
+
   setPlayerAway(clientId, away) {
     const p = this.players.find(p => p.clientId === clientId);
     if (p) p.away = !!away;
